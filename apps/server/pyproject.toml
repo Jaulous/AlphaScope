@@ -17,6 +17,9 @@ dependencies = [
   "uvicorn>=0.34.0"
 ]
 
+[project.scripts]
+limitboard-fetch = "limitboard_server.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

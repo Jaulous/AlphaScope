@@ -31,6 +31,16 @@ AlphaScope is a read-only short-term market dashboard built as a Turborepo monor
 - If one AkShare source is blocked, the fetch job retries first, then reuses stored raw data for the same trading day when available
 - Existing correct serving data is preserved if critical raw sources are missing
 
+## Manual Fetch Job
+
+Run the backend fetch job through the packaged CLI instead of ad-hoc shell heredocs:
+
+```bash
+PYTHONPATH=apps/server/src:packages/quant-core/src .venv/bin/python3 -m limitboard_server --trigger manual
+```
+
+This entrypoint executes the same `run_daily_fetch()` pipeline used by the API and scheduler, but from a real Python module path so multiprocessing can spawn correctly.
+
 ## Current Verified State
 
 Verified on `2026-03-08`:
