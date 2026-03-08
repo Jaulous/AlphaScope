@@ -17,7 +17,7 @@ const plexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'LimitBoard',
+  title: 'AlphaScope',
   description: 'Read-only short-term market dashboard powered by AkShare and quant-core.',
 }
 

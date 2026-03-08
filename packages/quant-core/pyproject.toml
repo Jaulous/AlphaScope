@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "quant-core"
 version = "0.1.0"
-description = "Unified quant engine for LimitBoard"
+description = "Unified quant engine for AlphaScope"
 requires-python = ">=3.11"
 dependencies = [
   "akshare>=1.16.82",

@@ -1,4 +1,4 @@
-# Project Status
+# AlphaScope Status
 
 As of `2026-03-08`, this repository is no longer in the original editable-whiteboard shape. It is running as a read-only market dashboard backed by persisted Supabase data.
 

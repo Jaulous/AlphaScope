@@ -405,7 +405,7 @@ export function DashboardShell() {
                 Market Monitor
               </div>
               <h1 className="mt-4 max-w-3xl font-sans text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-                LimitBoard
+                AlphaScope
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
                 A read-only short-term market dashboard. Every card on this page

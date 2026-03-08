@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         default=None, alias="SUPABASE_SERVICE_ROLE_KEY"
     )
     supabase_board_slug: str = Field(
-        default="limitboard-default", alias="SUPABASE_BOARD_SLUG"
+        default="alphascope-default", alias="SUPABASE_BOARD_SLUG"
     )
     server_host: str = Field(default="0.0.0.0", alias="SERVER_HOST")
     server_port: int = Field(default=8000, alias="SERVER_PORT")

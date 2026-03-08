@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "limitboard-server"
 version = "0.1.0"
-description = "FastAPI backend for LimitBoard"
+description = "FastAPI backend for AlphaScope"
 requires-python = ">=3.11"
 dependencies = [
   "apscheduler>=3.10.4",

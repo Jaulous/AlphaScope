@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: limitboard-server
 Version: 0.1.0
-Summary: FastAPI backend for LimitBoard
+Summary: FastAPI backend for AlphaScope
 Requires-Python: >=3.11
 Requires-Dist: apscheduler>=3.10.4
 Requires-Dist: fastapi>=0.115.8

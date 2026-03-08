@@ -21,7 +21,7 @@ async def lifespan(_: FastAPI):
         scheduler.stop()
 
 
-app = FastAPI(title="LimitBoard Server", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="AlphaScope Server", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

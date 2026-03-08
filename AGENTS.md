@@ -1,8 +1,8 @@
-# LimitBoard Agent Notes
+# AlphaScope Agent Notes
 
 ## Historical Decisions
 
-- LimitBoard uses a unified QuantConnect Lean-style `quant-core` architecture: `ingestion + universe + indicators + engine`.
+- AlphaScope uses a unified QuantConnect Lean-style `quant-core` architecture: `ingestion + universe + indicators + engine`.
 - This decision intentionally avoids a fragmented multi-layer pipeline because the market snapshot, active universe logic, and indicator computation all need to share a single synchronized context per trading day.
 - Compared with ad-hoc pipelines, the unified engine is more professional for quant systems because it provides deterministic daily execution, a single plugin contract, easier backtesting portability, and cleaner migration toward research/live parity.
 

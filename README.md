@@ -1,6 +1,6 @@
-# LimitBoard
+# AlphaScope
 
-LimitBoard is a read-only short-term market dashboard built as a Turborepo monorepo. It uses a unified `quant-core` engine to pull raw market data from AkShare, persist the raw layer into Supabase, compute serving indicators from the stored raw data, and present the result as a backend-driven display surface instead of an editable whiteboard.
+AlphaScope is a read-only short-term market dashboard built as a Turborepo monorepo. It uses a unified `quant-core` engine to pull raw market data from AkShare, persist the raw layer into Supabase, compute serving indicators from the stored raw data, and present the result as a backend-driven display surface instead of an editable whiteboard.
 
 ## Documentation
 
@@ -182,7 +182,7 @@ Runs the daily fetch pipeline manually.
 
 ## Quant Architecture
 
-LimitBoard uses a unified Lean-style `quant-core` architecture:
+AlphaScope uses a unified Lean-style `quant-core` architecture:
 
 - ingestion
 - universe
