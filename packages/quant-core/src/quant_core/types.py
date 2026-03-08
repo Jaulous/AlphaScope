@@ -34,6 +34,8 @@ class IndicatorContext:
     concept_boards: pd.DataFrame
     historical_indicator_values: pd.DataFrame | None = None
     historical_theme_volume: pd.DataFrame | None = None
+    historical_limit_up_pool: pd.DataFrame | None = None
+    stock_kline_history: pd.DataFrame | None = None
     active_themes: list[ThemeSelection] = field(default_factory=list)
 
 

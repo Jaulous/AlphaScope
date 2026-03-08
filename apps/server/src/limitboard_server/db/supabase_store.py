@@ -18,11 +18,20 @@ class SupabaseStore:
     def ensure_indicator_definitions(self) -> list[IndicatorDefinition]:
         response = self.client.table("indicator_definitions").select("*").execute()
         rows = response.data or []
-        if not rows:
+        existing_keys = {row["key"] for row in rows}
+        missing_defaults = [
+            item for item in DEFAULT_INDICATOR_DEFINITIONS if item["key"] not in existing_keys
+        ]
+        if missing_defaults:
+            self.client.table("indicator_definitions").upsert(
+                missing_defaults, on_conflict="key"
+            ).execute()
+            rows.extend(missing_defaults)
+        elif not rows:
             self.client.table("indicator_definitions").upsert(
                 DEFAULT_INDICATOR_DEFINITIONS, on_conflict="key"
             ).execute()
-            rows = DEFAULT_INDICATOR_DEFINITIONS
+            rows = list(DEFAULT_INDICATOR_DEFINITIONS)
         return [
             IndicatorDefinition(
                 key=row["key"],
@@ -100,6 +109,35 @@ class SupabaseStore:
             ],
         )
 
+    def fetch_raw_limit_up_pool_history(
+        self, start_date: date, end_date: date
+    ) -> pd.DataFrame:
+        response = (
+            self.client.table("raw_limit_up_pool_daily")
+            .select(
+                "snapshot_date,symbol,name,board_count,seal_funds,turnover_rate,first_limit_time,last_limit_time,metadata"
+            )
+            .gte("snapshot_date", start_date.isoformat())
+            .lte("snapshot_date", end_date.isoformat())
+            .order("snapshot_date", desc=False)
+            .order("symbol", desc=False)
+            .execute()
+        )
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "snapshot_date",
+                "symbol",
+                "name",
+                "board_count",
+                "seal_funds",
+                "turnover_rate",
+                "first_limit_time",
+                "last_limit_time",
+                "metadata",
+            ],
+        )
+
     def fetch_raw_concept_boards(self, snapshot_date: date) -> pd.DataFrame:
         response = (
             self.client.table("raw_concept_boards_daily")
@@ -135,6 +173,43 @@ class SupabaseStore:
                 "snapshot_date,ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change,metadata"
             )
             .eq("snapshot_date", snapshot_date.isoformat())
+            .order("ts", desc=False)
+        )
+        if symbols:
+            query = query.in_("symbol", symbols)
+        response = query.execute()
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "snapshot_date",
+                "ts",
+                "symbol",
+                "name",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "turnover",
+                "amplitude",
+                "pct_change",
+                "metadata",
+            ],
+        )
+
+    def fetch_raw_stock_kline_history(
+        self,
+        start_date: date,
+        end_date: date,
+        symbols: list[str] | None = None,
+    ) -> pd.DataFrame:
+        query = (
+            self.client.table("raw_stock_kline_daily")
+            .select(
+                "snapshot_date,ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change,metadata"
+            )
+            .gte("snapshot_date", start_date.isoformat())
+            .lte("snapshot_date", end_date.isoformat())
             .order("ts", desc=False)
         )
         if symbols:

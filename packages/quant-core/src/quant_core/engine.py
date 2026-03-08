@@ -46,6 +46,8 @@ class QuantEngine:
         as_of: date,
         historical_indicator_values: pd.DataFrame | None = None,
         historical_theme_volume: pd.DataFrame | None = None,
+        historical_limit_up_pool: pd.DataFrame | None = None,
+        stock_kline_history: pd.DataFrame | None = None,
         tracking_config: TrackingConfig | None = None,
     ) -> EngineResult:
         market_snapshot = self.provider.fetch_market_snapshot()
@@ -59,6 +61,8 @@ class QuantEngine:
             concept_boards=concept_boards,
             historical_indicator_values=historical_indicator_values,
             historical_theme_volume=historical_theme_volume,
+            historical_limit_up_pool=historical_limit_up_pool,
+            stock_kline_history=stock_kline_history,
             tracking_config=tracking_config,
         )
 
@@ -71,6 +75,8 @@ class QuantEngine:
         concept_boards: pd.DataFrame,
         historical_indicator_values: pd.DataFrame | None = None,
         historical_theme_volume: pd.DataFrame | None = None,
+        historical_limit_up_pool: pd.DataFrame | None = None,
+        stock_kline_history: pd.DataFrame | None = None,
         tracking_config: TrackingConfig | None = None,
         preloaded_stock_kline_rows: list[dict] | None = None,
     ) -> EngineResult:
@@ -89,6 +95,8 @@ class QuantEngine:
             concept_boards=concept_boards,
             historical_indicator_values=historical_indicator_values,
             historical_theme_volume=historical_theme_volume,
+            historical_limit_up_pool=historical_limit_up_pool,
+            stock_kline_history=stock_kline_history,
             active_themes=self.active_theme_universe.select(
                 IndicatorContext(
                     as_of=as_of,
@@ -97,6 +105,8 @@ class QuantEngine:
                     concept_boards=concept_boards,
                     historical_indicator_values=historical_indicator_values,
                     historical_theme_volume=historical_theme_volume,
+                    historical_limit_up_pool=historical_limit_up_pool,
+                    stock_kline_history=stock_kline_history,
                 ),
                 theme_definition.config if theme_definition else {},
             ),
@@ -136,13 +146,22 @@ class QuantEngine:
         )
 
     def collect_stock_kline_rows(
-        self, as_of: date, symbols: Sequence[str]
+        self,
+        as_of: date,
+        symbols: Sequence[str],
+        *,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> list[dict]:
         rows: list[dict] = []
+        start = start_date or as_of
+        end = end_date or as_of
         for symbol in symbols:
             try:
                 df = self.provider.fetch_stock_kline_daily(
-                    symbol=symbol, start_date=as_of, end_date=as_of
+                    symbol=symbol,
+                    start_date=start,
+                    end_date=end,
                 )
             except Exception:
                 continue

@@ -42,6 +42,18 @@ DEFAULT_INDICATOR_DEFINITIONS = [
         "description": "Aggregate turnover across the market snapshot.",
     },
     {
+        "key": "n_shape_limit_up_count",
+        "type": "n_shape_limit_up_count",
+        "name": "N-Shape Limit-Up Count",
+        "config": {
+            "lookback_days": 30,
+            "min_pullback_pct": 5.0,
+            "min_gap_days": 2,
+            "breakout_tolerance_pct": 0.0
+        },
+        "description": "Today's limit-up stocks that also show a prior limit-up, a meaningful pullback, and a renewed breakout within the lookback window.",
+    },
+    {
         "key": "active_themes",
         "type": "active_themes",
         "name": "Active Themes Volume",

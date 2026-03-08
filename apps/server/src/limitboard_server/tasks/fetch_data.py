@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import sleep
 from typing import Any, Callable
 
@@ -182,6 +182,19 @@ def run_daily_fetch(
         (item for item in definitions if item.enabled and item.key == "active_themes"),
         None,
     )
+    n_shape_definition = next(
+        (
+            item
+            for item in definitions
+            if item.enabled and item.key == "n_shape_limit_up_count"
+        ),
+        None,
+    )
+    n_shape_lookback_days = int(
+        n_shape_definition.config.get("lookback_days", 30)
+    ) if n_shape_definition else 0
+    history_start_date = as_of - timedelta(days=n_shape_lookback_days)
+
     pre_context = IndicatorContext(
         as_of=as_of,
         market_snapshot=raw_market_snapshot,
@@ -206,11 +219,44 @@ def run_daily_fetch(
         tracking_config,
     )
 
-    raw_stock_kline_rows = engine.collect_stock_kline_rows(as_of, tracked_symbols)
+    tracked_stock_kline_rows = engine.collect_stock_kline_rows(
+        as_of,
+        tracked_symbols,
+        start_date=as_of,
+        end_date=as_of,
+    )
+    n_shape_symbols = (
+        raw_limit_up_pool["symbol"].dropna().astype(str).tolist()
+        if n_shape_definition and not raw_limit_up_pool.empty
+        else []
+    )
+    n_shape_stock_kline_rows: list[dict[str, Any]] = []
+    if n_shape_symbols:
+        n_shape_stock_kline_rows = engine.collect_stock_kline_rows(
+            as_of,
+            n_shape_symbols,
+            start_date=history_start_date,
+            end_date=as_of,
+        )
+
     raw_counts["raw_stock_kline_count"] = store.upsert_raw_stock_kline_rows(
-        raw_stock_kline_rows
+        tracked_stock_kline_rows + n_shape_stock_kline_rows
     )
     raw_stock_kline = store.fetch_raw_stock_kline(as_of, tracked_symbols)
+    stock_kline_history = (
+        store.fetch_raw_stock_kline_history(
+            start_date=history_start_date,
+            end_date=as_of,
+            symbols=n_shape_symbols,
+        )
+        if n_shape_symbols
+        else pd.DataFrame()
+    )
+    historical_limit_up_pool = (
+        store.fetch_raw_limit_up_pool_history(history_start_date, as_of)
+        if n_shape_definition
+        else pd.DataFrame()
+    )
     preloaded_stock_kline_rows = [
         {
             "ts": row["ts"],
@@ -237,6 +283,8 @@ def run_daily_fetch(
         concept_boards=raw_concept_boards,
         historical_indicator_values=indicator_history,
         historical_theme_volume=theme_history,
+        historical_limit_up_pool=historical_limit_up_pool,
+        stock_kline_history=stock_kline_history,
         tracking_config=tracking_config,
         preloaded_stock_kline_rows=preloaded_stock_kline_rows,
     )
