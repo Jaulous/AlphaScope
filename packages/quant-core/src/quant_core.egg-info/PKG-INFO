@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: quant-core
+Version: 0.1.0
+Summary: Unified quant engine for LimitBoard
+Requires-Python: >=3.11
+Requires-Dist: akshare>=1.16.82
+Requires-Dist: numpy>=2.2.3
+Requires-Dist: pandas>=2.2.3
+Requires-Dist: pytz>=2024.2

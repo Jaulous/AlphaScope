@@ -1,0 +1,4 @@
+akshare>=1.16.82
+numpy>=2.2.3
+pandas>=2.2.3
+pytz>=2024.2

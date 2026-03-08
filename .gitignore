@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+.next
+.turbo
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+__pycache__
+*.pyc
+.venv
+.pytest_cache
+dist
+coverage
+.DS_Store

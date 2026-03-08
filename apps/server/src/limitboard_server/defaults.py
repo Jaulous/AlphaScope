@@ -1,0 +1,51 @@
+DEFAULT_INDICATOR_DEFINITIONS = [
+    {
+        "key": "up_limit_count",
+        "type": "up_limit_count",
+        "name": "Daily Up Limit Count",
+        "config": {"threshold": 9.8},
+        "description": "Number of stocks closing at or near up-limit threshold.",
+    },
+    {
+        "key": "highest_board",
+        "type": "highest_board",
+        "name": "Highest Board",
+        "config": {},
+        "description": "Highest consecutive board count from daily limit-up pool.",
+    },
+    {
+        "key": "down_limit_count",
+        "type": "down_limit_count",
+        "name": "Daily Down Limit Count",
+        "config": {"threshold": -9.8},
+        "description": "Number of stocks closing at or near down-limit threshold.",
+    },
+    {
+        "key": "decliner_count",
+        "type": "decliner_count",
+        "name": "Decliner Count",
+        "config": {},
+        "description": "Number of stocks with negative daily percentage change.",
+    },
+    {
+        "key": "active_capital_ratio",
+        "type": "active_capital_ratio",
+        "name": "Active Capital Ratio",
+        "config": {"top_percent": 0.1},
+        "description": "Share of total turnover concentrated in the top decile by turnover.",
+    },
+    {
+        "key": "market_turnover",
+        "type": "market_turnover",
+        "name": "Total Market Turnover",
+        "config": {"display_unit": "100M"},
+        "description": "Aggregate turnover across the market snapshot.",
+    },
+    {
+        "key": "active_themes",
+        "type": "active_themes",
+        "name": "Active Themes Volume",
+        "config": {"top_n": 20, "threshold": 0, "window_days": 20, "expire_days": 5},
+        "description": "Top active themes selected from AkShare concept boards by turnover.",
+    },
+]

@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: limitboard-server
+Version: 0.1.0
+Summary: FastAPI backend for LimitBoard
+Requires-Python: >=3.11
+Requires-Dist: apscheduler>=3.10.4
+Requires-Dist: fastapi>=0.115.8
+Requires-Dist: pandas>=2.2.3
+Requires-Dist: pydantic-settings>=2.8.1
+Requires-Dist: pytz>=2024.2
+Requires-Dist: supabase>=2.13.0
+Requires-Dist: uvicorn>=0.34.0

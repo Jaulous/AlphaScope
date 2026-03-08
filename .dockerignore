@@ -1,0 +1,11 @@
+node_modules
+.pnpm-store
+.turbo
+.git
+.gitignore
+apps/web/.next
+**/__pycache__
+**/*.pyc
+.venv
+.env
+.DS_Store
