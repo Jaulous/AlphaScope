@@ -32,7 +32,6 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
 - `daily_themes_volume`
 - `stock_kline_daily`
 - `indicator_definitions`
-- `board_documents`
 - `fetch_runs`
 
 ## Ingestion Safety Rules
@@ -72,7 +71,6 @@ That warning state is expected on a Sunday. The system correctly backfilled the 
 
 - AkShare source stability is still the main external risk. Some sources can be slow or intermittently fail.
 - Stock rows currently have incomplete name fields for some symbols because the raw K-line source does not always provide normalized names consistently.
-- `board_documents` remains in schema for compatibility, but it is no longer central to the current product shape.
 - Project docs and runtime currently assume Supabase is required. There is no alternate local Postgres adapter.
 
 ## Recommended Operational Checks

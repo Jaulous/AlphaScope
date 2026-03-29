@@ -26,6 +26,7 @@ If `dashboard/latest` returns warnings, inspect `latest_run` in the response. Ty
 - weekend requests target the latest trading day instead of the current calendar day
 - one raw source was reused from stored data for the same trading day
 - the latest fetch failed but the previous correct serving snapshot was preserved
+- a recent restart is still backfilling missed trading days before normal scheduling resumes
 
 ## Supabase is not configured
 
@@ -62,15 +63,15 @@ If it does, verify:
 - the target project has the schema from `supabase/migrations`
 - the new `raw_*` tables are present and writable
 
-## The UI still looks like a whiteboard
+## The backend missed one or more trading days
 
-You are probably running an old build artifact.
+Restarting the backend now triggers startup backfill before normal scheduling begins.
 
-Restart the frontend dev server:
+Check:
 
-```bash
-pnpm --filter @limitboard/web dev
-```
+1. restart the backend process
+2. inspect the latest `fetch_runs` rows for `startup_backfill`
+3. confirm `daily_indicators` now contains the missing trading dates
 
 ## Local ports
 

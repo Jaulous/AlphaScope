@@ -9,6 +9,7 @@ import pandas as pd
 from .ingestion import AkShareProvider
 from .registry import IndicatorRegistry
 from .types import (
+    EngineExecutionPlan,
     EngineResult,
     IndicatorContext,
     IndicatorDefinition,
@@ -39,6 +40,18 @@ class QuantEngine:
         self.use_multiprocessing = use_multiprocessing
         self.active_theme_universe = ActiveThemesUniverse()
         self.tracked_equities_universe = TrackedEquitiesUniverse()
+
+    def build_execution_plan(
+        self, definitions: Sequence[IndicatorDefinition]
+    ) -> EngineExecutionPlan:
+        plan = EngineExecutionPlan()
+        enabled_definitions = [
+            definition for definition in definitions if definition.enabled
+        ]
+        for definition in enabled_definitions:
+            indicator = self.registry.get(definition.type)()
+            plan.include_indicator_requirements(indicator.get_requirements(definition))
+        return plan
 
     def run(
         self,
@@ -88,6 +101,19 @@ class QuantEngine:
         theme_definition = next(
             (item for item in enabled_definitions if item.key == "active_themes"), None
         )
+        datasets = {
+            "market_snapshot": market_snapshot,
+            "limit_up_pool": limit_up_pool,
+            "concept_boards": concept_boards,
+        }
+        if historical_indicator_values is not None:
+            datasets["historical_indicator_values"] = historical_indicator_values
+        if historical_theme_volume is not None:
+            datasets["historical_theme_volume"] = historical_theme_volume
+        if historical_limit_up_pool is not None:
+            datasets["historical_limit_up_pool"] = historical_limit_up_pool
+        if stock_kline_history is not None:
+            datasets["stock_kline_history"] = stock_kline_history
         context = IndicatorContext(
             as_of=as_of,
             market_snapshot=market_snapshot,
@@ -107,9 +133,11 @@ class QuantEngine:
                     historical_theme_volume=historical_theme_volume,
                     historical_limit_up_pool=historical_limit_up_pool,
                     stock_kline_history=stock_kline_history,
+                    datasets=datasets,
                 ),
                 theme_definition.config if theme_definition else {},
             ),
+            datasets=datasets,
         )
 
         tasks = [
@@ -152,8 +180,10 @@ class QuantEngine:
         *,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> list[dict]:
+        return_errors: bool = False,
+    ) -> list[dict] | tuple[list[dict], list[str]]:
         rows: list[dict] = []
+        errors: list[str] = []
         start = start_date or as_of
         end = end_date or as_of
         for symbol in symbols:
@@ -163,7 +193,8 @@ class QuantEngine:
                     start_date=start,
                     end_date=end,
                 )
-            except Exception:
+            except Exception as exc:
+                errors.append(f"{symbol}: {exc}")
                 continue
             if df.empty:
                 continue
@@ -187,6 +218,8 @@ class QuantEngine:
                         "metadata": {},
                     }
                 )
+        if return_errors:
+            return rows, errors
         return rows
 
 

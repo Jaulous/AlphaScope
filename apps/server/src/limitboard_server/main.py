@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,11 +15,14 @@ scheduler = FetchScheduler()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    scheduler.start()
+    if settings.scheduler_enabled:
+        await asyncio.to_thread(scheduler.catch_up_missing_trading_days)
+        scheduler.start()
     try:
         yield
     finally:
-        scheduler.stop()
+        if settings.scheduler_enabled:
+            scheduler.stop()
 
 
 app = FastAPI(title="AlphaScope Server", version="0.1.0", lifespan=lifespan)

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "lint": "python3 -m compileall src",
-    "typecheck": "python3 -m compileall src"
+    "typecheck": "python3 -m compileall src",
+    "test": "PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'"
   }
 }

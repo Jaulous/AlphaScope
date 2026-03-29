@@ -5,12 +5,33 @@ from datetime import timedelta
 import pandas as pd
 
 from quant_core.indicators.base import BaseIndicator
-from quant_core.types import IndicatorContext, IndicatorDefinition, IndicatorResult
+from quant_core.types import (
+    IndicatorContext,
+    IndicatorDefinition,
+    IndicatorRequirements,
+    IndicatorResult,
+    StockKlineRequirement,
+)
 
 
 class NShapeLimitUpCountIndicator(BaseIndicator):
     indicator_key = "n_shape_limit_up_count"
     display_name = "N-Shape Limit-Up Count"
+
+    def get_requirements(
+        self, definition: IndicatorDefinition
+    ) -> IndicatorRequirements:
+        lookback_days = int(definition.config.get("lookback_days", 30))
+        return IndicatorRequirements(
+            historical_limit_up_pool_days=lookback_days,
+            stock_kline_requirements=[
+                StockKlineRequirement(
+                    scope="limit_up_pool",
+                    lookback_days=lookback_days,
+                    required=True,
+                )
+            ],
+        )
 
     def compute(
         self, context: IndicatorContext, definition: IndicatorDefinition
@@ -62,7 +83,9 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
         cutoff = as_of_ts - timedelta(days=lookback_days)
         matched_stocks: list[dict[str, object]] = []
 
-        sorted_today = today.sort_values(["board_count", "symbol"], ascending=[False, True])
+        sorted_today = today.sort_values(
+            ["board_count", "symbol"], ascending=[False, True]
+        )
         for _, stock in sorted_today.iterrows():
             symbol = str(stock["symbol"])
             symbol_history = (
@@ -104,7 +127,8 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
                 prior_close = float(prior_row["close"])
 
                 between = symbol_history[
-                    (symbol_history["ts"] > prior_date) & (symbol_history["ts"] < as_of_ts)
+                    (symbol_history["ts"] > prior_date)
+                    & (symbol_history["ts"] < as_of_ts)
                 ].copy()
                 if between.empty:
                     continue
@@ -112,14 +136,19 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
                 pullback_candidates = between[pd.notna(between["close"])]
                 if pullback_candidates.empty:
                     continue
-                trough_row = pullback_candidates.loc[pullback_candidates["close"].idxmin()]
+                trough_row = pullback_candidates.loc[
+                    pullback_candidates["close"].idxmin()
+                ]
                 trough_close = float(trough_row["close"])
                 pullback_pct = ((prior_close - trough_close) / prior_close) * 100
                 if pullback_pct < min_pullback_pct:
                     continue
 
                 breakout_level = prior_close * (1 - breakout_tolerance_pct / 100)
-                if pd.isna(today_row["close"]) or float(today_row["close"]) < breakout_level:
+                if (
+                    pd.isna(today_row["close"])
+                    or float(today_row["close"]) < breakout_level
+                ):
                     continue
 
                 matched_stocks.append(
@@ -127,7 +156,9 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
                         "symbol": symbol,
                         "name": stock.get("name") or today_row.get("name"),
                         "prior_limit_date": prior_date.date().isoformat(),
-                        "pullback_low_date": pd.Timestamp(trough_row["ts"]).date().isoformat(),
+                        "pullback_low_date": pd.Timestamp(trough_row["ts"])
+                        .date()
+                        .isoformat(),
                         "pullback_pct": round(pullback_pct, 2),
                         "today_board_count": int(stock.get("board_count") or 1),
                     }

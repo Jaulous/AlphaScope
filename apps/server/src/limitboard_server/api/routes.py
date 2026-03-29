@@ -5,19 +5,16 @@ from datetime import datetime
 import pandas as pd
 import pytz
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
 from quant_core.ingestion import AkShareProvider
 
 from limitboard_server.config import settings
 from limitboard_server.db.supabase_store import SupabaseStore
 from limitboard_server.defaults import DEFAULT_INDICATOR_DEFINITIONS
+from limitboard_server.scheduler import FetchScheduler
 from limitboard_server.tasks.fetch_data import run_daily_fetch
 
 router = APIRouter()
-
-
-class BoardPayload(BaseModel):
-    snapshot: dict
+cron_scheduler = FetchScheduler()
 
 
 def get_store() -> SupabaseStore | None:
@@ -26,7 +23,6 @@ def get_store() -> SupabaseStore | None:
     return SupabaseStore(
         supabase_url=settings.supabase_url,
         secret_key=settings.supabase_server_key,
-        board_slug=settings.supabase_board_slug,
     )
 
 
@@ -50,6 +46,8 @@ def health() -> dict:
         "supabase_enabled": settings.supabase_enabled,
         "storage_mode": "supabase",
         "scheduler_timezone": settings.scheduler_timezone,
+        "embedded_scheduler_enabled": settings.scheduler_enabled,
+        "is_vercel": settings.is_vercel,
     }
 
 
@@ -130,13 +128,25 @@ def trigger_fetch(x_admin_key: str | None = Header(default=None)) -> dict:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.get("/board/default")
-def get_board() -> dict:
-    return require_store().get_board_document()
+@router.get("/cron/fetch")
+def cron_fetch(authorization: str | None = Header(default=None)) -> dict:
+    if not settings.cron_secret:
+        raise HTTPException(status_code=503, detail="cron secret is not configured")
+    if authorization != f"Bearer {settings.cron_secret}":
+        raise HTTPException(status_code=401, detail="invalid cron secret")
 
+    provider = AkShareProvider(timezone=settings.scheduler_timezone)
+    current_time = datetime.now(pytz.timezone(settings.scheduler_timezone))
+    expected_through = provider.latest_market_date(current_time.date())
+    catch_up_results = cron_scheduler.catch_up_missing_trading_days(now=current_time)
+    latest_backfilled = None
+    if catch_up_results:
+        latest_backfilled = catch_up_results[-1].get("as_of")
 
-@router.put("/board/default")
-def put_board(payload: BoardPayload) -> dict:
-    if payload.snapshot is None:
-        raise HTTPException(status_code=400, detail="snapshot is required")
-    return require_store().save_board_document(payload.snapshot)
+    return {
+        "status": "ok",
+        "trigger": "vercel_cron",
+        "expected_through": expected_through.isoformat(),
+        "backfilled_runs": catch_up_results,
+        "latest_backfilled_as_of": latest_backfilled,
+    }

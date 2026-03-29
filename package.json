@@ -4,9 +4,12 @@
   "packageManager": "pnpm@10.6.2",
   "scripts": {
     "dev": "turbo run dev --parallel",
+    "start:project": "turbo run dev --parallel",
+    "open:frontend": "open http://localhost:3000",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "test": "pnpm --filter @limitboard/quant-core test && pnpm --filter @limitboard/server test"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

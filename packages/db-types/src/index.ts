@@ -64,16 +64,6 @@ export interface Database {
           metadata: Json;
         };
       };
-      board_documents: {
-        Row: {
-          id: string;
-          slug: string;
-          title: string;
-          snapshot: Json;
-          created_at: string;
-          updated_at: string;
-        };
-      };
     };
   };
 }

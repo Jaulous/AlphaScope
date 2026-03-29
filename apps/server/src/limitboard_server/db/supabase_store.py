@@ -11,16 +11,17 @@ from limitboard_server.defaults import DEFAULT_INDICATOR_DEFINITIONS
 
 
 class SupabaseStore:
-    def __init__(self, supabase_url: str, secret_key: str, board_slug: str) -> None:
+    def __init__(self, supabase_url: str, secret_key: str) -> None:
         self.client: Client = create_client(supabase_url, secret_key)
-        self.board_slug = board_slug
 
     def ensure_indicator_definitions(self) -> list[IndicatorDefinition]:
         response = self.client.table("indicator_definitions").select("*").execute()
         rows = response.data or []
         existing_keys = {row["key"] for row in rows}
         missing_defaults = [
-            item for item in DEFAULT_INDICATOR_DEFINITIONS if item["key"] not in existing_keys
+            item
+            for item in DEFAULT_INDICATOR_DEFINITIONS
+            if item["key"] not in existing_keys
         ]
         if missing_defaults:
             self.client.table("indicator_definitions").upsert(
@@ -266,6 +267,24 @@ class SupabaseStore:
         if not rows:
             return None
         return rows[0].get("indicator_date")
+
+    def fetch_snapshot_dates(self, start_date: date, end_date: date) -> set[date]:
+        response = (
+            self.client.table("daily_indicators")
+            .select("indicator_date")
+            .gte("indicator_date", start_date.isoformat())
+            .lte("indicator_date", end_date.isoformat())
+            .order("indicator_date", desc=False)
+            .execute()
+        )
+        rows = response.data or []
+        snapshot_dates: set[date] = set()
+        for row in rows:
+            raw_value = row.get("indicator_date")
+            if not raw_value:
+                continue
+            snapshot_dates.add(date.fromisoformat(str(raw_value)))
+        return snapshot_dates
 
     def has_serving_snapshot(self, as_of: date) -> bool:
         response = (
@@ -679,30 +698,6 @@ class SupabaseStore:
             "active_themes": active_themes,
             "tracked_stocks": tracked_stocks,
         }
-
-    def get_board_document(self) -> dict[str, Any]:
-        response = (
-            self.client.table("board_documents")
-            .select("slug,title,snapshot,updated_at")
-            .eq("slug", self.board_slug)
-            .limit(1)
-            .execute()
-        )
-        rows = response.data or []
-        if rows:
-            return rows[0]
-        payload = {"slug": self.board_slug, "title": "Main Board", "snapshot": {}}
-        self.client.table("board_documents").upsert(
-            payload, on_conflict="slug"
-        ).execute()
-        return payload
-
-    def save_board_document(self, snapshot: dict[str, Any]) -> dict[str, Any]:
-        payload = {"slug": self.board_slug, "title": "Main Board", "snapshot": snapshot}
-        self.client.table("board_documents").upsert(
-            payload, on_conflict="slug"
-        ).execute()
-        return payload
 
     @staticmethod
     def _dedupe_payload(

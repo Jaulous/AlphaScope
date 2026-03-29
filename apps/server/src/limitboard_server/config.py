@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic import Field
@@ -18,9 +19,6 @@ class Settings(BaseSettings):
     supabase_service_role_key_legacy: str | None = Field(
         default=None, alias="SUPABASE_SERVICE_ROLE_KEY"
     )
-    supabase_board_slug: str = Field(
-        default="alphascope-default", alias="SUPABASE_BOARD_SLUG"
-    )
     server_host: str = Field(default="0.0.0.0", alias="SERVER_HOST")
     server_port: int = Field(default=8000, alias="SERVER_PORT")
     server_cors_origins: str = Field(
@@ -29,6 +27,10 @@ class Settings(BaseSettings):
     scheduler_timezone: str = Field(default="Asia/Shanghai", alias="SCHEDULER_TIMEZONE")
     engine_parallelism: bool = Field(default=True, alias="ENGINE_PARALLELISM")
     admin_api_key: str = Field(default="", alias="ADMIN_API_KEY")
+    cron_secret: str = Field(default="", alias="CRON_SECRET")
+    embedded_scheduler_enabled: bool | None = Field(
+        default=None, alias="EMBEDDED_SCHEDULER_ENABLED"
+    )
     tracking_top_turnover_count: int = Field(
         default=20, alias="TRACKING_TOP_TURNOVER_COUNT"
     )
@@ -58,6 +60,16 @@ class Settings(BaseSettings):
     @property
     def supabase_enabled(self) -> bool:
         return bool(self.supabase_url and self.supabase_server_key)
+
+    @property
+    def is_vercel(self) -> bool:
+        return bool(os.getenv("VERCEL"))
+
+    @property
+    def scheduler_enabled(self) -> bool:
+        if self.embedded_scheduler_enabled is not None:
+            return self.embedded_scheduler_enabled
+        return not self.is_vercel
 
 
 settings = Settings()

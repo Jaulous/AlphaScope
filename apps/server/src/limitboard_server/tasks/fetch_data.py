@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from time import sleep
 from typing import Any, Callable
 
@@ -23,6 +23,7 @@ def run_daily_fetch(
     *,
     trigger: str = "manual",
     force_non_trading: bool = False,
+    reference_date_override: date | None = None,
 ) -> dict[str, Any]:
     if not settings.supabase_enabled:
         raise RuntimeError(
@@ -32,11 +33,10 @@ def run_daily_fetch(
     store = SupabaseStore(
         supabase_url=settings.supabase_url,
         secret_key=settings.supabase_server_key,
-        board_slug=settings.supabase_board_slug,
     )
     timezone = pytz.timezone(settings.scheduler_timezone)
     engine = QuantEngine(use_multiprocessing=settings.engine_parallelism)
-    reference_date = datetime.now(timezone).date()
+    reference_date = reference_date_override or datetime.now(timezone).date()
     is_trading_day = engine.provider.is_trading_day(reference_date)
     as_of = engine.provider.latest_market_date(reference_date)
 
@@ -75,8 +75,19 @@ def run_daily_fetch(
         )
         for item in DEFAULT_INDICATOR_DEFINITIONS
     ]
-    indicator_history = store.fetch_indicator_history(lookback_days=90)
-    theme_history = store.fetch_theme_history(lookback_days=120)
+    execution_plan = engine.build_execution_plan(definitions)
+    indicator_history = (
+        store.fetch_indicator_history(
+            lookback_days=execution_plan.indicator_history_days
+        )
+        if execution_plan.indicator_history_days > 0
+        else pd.DataFrame()
+    )
+    theme_history = (
+        store.fetch_theme_history(lookback_days=execution_plan.theme_history_days)
+        if execution_plan.theme_history_days > 0
+        else pd.DataFrame()
+    )
 
     warnings: list[str] = []
     if not is_trading_day:
@@ -182,18 +193,13 @@ def run_daily_fetch(
         (item for item in definitions if item.enabled and item.key == "active_themes"),
         None,
     )
-    n_shape_definition = next(
-        (
-            item
-            for item in definitions
-            if item.enabled and item.key == "n_shape_limit_up_count"
-        ),
-        None,
+    tracked_stock_start_date = as_of - timedelta(
+        days=execution_plan.tracked_stock_history_days
     )
-    n_shape_lookback_days = int(
-        n_shape_definition.config.get("lookback_days", 30)
-    ) if n_shape_definition else 0
-    history_start_date = as_of - timedelta(days=n_shape_lookback_days)
+    limit_up_pool_history_start_date = as_of - timedelta(
+        days=execution_plan.limit_up_pool_history_days
+    )
+    indicator_stock_history_start_date = as_of
 
     pre_context = IndicatorContext(
         as_of=as_of,
@@ -202,6 +208,11 @@ def run_daily_fetch(
         concept_boards=raw_concept_boards,
         historical_indicator_values=indicator_history,
         historical_theme_volume=theme_history,
+        datasets={
+            "market_snapshot": raw_market_snapshot,
+            "limit_up_pool": raw_limit_up_pool,
+            "concept_boards": raw_concept_boards,
+        },
     )
     active_themes = engine.active_theme_universe.select(
         pre_context, theme_definition.config if theme_definition else {}
@@ -219,44 +230,101 @@ def run_daily_fetch(
         tracking_config,
     )
 
-    tracked_stock_kline_rows = engine.collect_stock_kline_rows(
-        as_of,
-        tracked_symbols,
-        start_date=as_of,
-        end_date=as_of,
-    )
-    n_shape_symbols = (
-        raw_limit_up_pool["symbol"].dropna().astype(str).tolist()
-        if n_shape_definition and not raw_limit_up_pool.empty
-        else []
-    )
-    n_shape_stock_kline_rows: list[dict[str, Any]] = []
-    if n_shape_symbols:
-        n_shape_stock_kline_rows = engine.collect_stock_kline_rows(
+    tracked_stock_kline_rows, tracked_stock_kline_errors = (
+        engine.collect_stock_kline_rows(
             as_of,
-            n_shape_symbols,
-            start_date=history_start_date,
+            tracked_symbols,
+            start_date=tracked_stock_start_date,
             end_date=as_of,
+            return_errors=True,
+        )
+    )
+    indicator_stock_symbols: set[str] = set()
+    if execution_plan.tracked_stock_history_days > 0:
+        indicator_stock_symbols.update(tracked_symbols)
+        indicator_stock_history_start_date = min(
+            indicator_stock_history_start_date, tracked_stock_start_date
         )
 
-    raw_counts["raw_stock_kline_count"] = store.upsert_raw_stock_kline_rows(
-        tracked_stock_kline_rows + n_shape_stock_kline_rows
+    limit_up_pool_symbols = (
+        raw_limit_up_pool["symbol"].dropna().astype(str).tolist()
+        if execution_plan.limit_up_pool_stock_history_days > 0
+        and not raw_limit_up_pool.empty
+        else []
     )
+    limit_up_pool_stock_kline_rows: list[dict[str, Any]] = []
+    limit_up_pool_stock_kline_errors: list[str] = []
+    if limit_up_pool_symbols:
+        limit_up_pool_stock_start_date = as_of - timedelta(
+            days=execution_plan.limit_up_pool_stock_history_days
+        )
+        indicator_stock_symbols.update(limit_up_pool_symbols)
+        indicator_stock_history_start_date = min(
+            indicator_stock_history_start_date, limit_up_pool_stock_start_date
+        )
+        (
+            limit_up_pool_stock_kline_rows,
+            limit_up_pool_stock_kline_errors,
+        ) = engine.collect_stock_kline_rows(
+            as_of,
+            limit_up_pool_symbols,
+            start_date=limit_up_pool_stock_start_date,
+            end_date=as_of,
+            return_errors=True,
+        )
+
+    stock_kline_errors = tracked_stock_kline_errors + limit_up_pool_stock_kline_errors
+    raw_counts["raw_stock_kline_count"] = store.upsert_raw_stock_kline_rows(
+        tracked_stock_kline_rows + limit_up_pool_stock_kline_rows
+    )
+    source_statuses["stock_kline"] = {
+        "status": "fetched" if not stock_kline_errors else "partial",
+        "row_count": raw_counts["raw_stock_kline_count"],
+        "requested_symbols": len(set(tracked_symbols).union(limit_up_pool_symbols)),
+    }
+    if stock_kline_errors:
+        source_statuses["stock_kline"]["errors"] = stock_kline_errors[:20]
+        warnings.append(
+            "Some stock K-line fetches failed. Persisted indicators may rely on "
+            "previously stored rows for the affected symbols."
+        )
+
     raw_stock_kline = store.fetch_raw_stock_kline(as_of, tracked_symbols)
     stock_kline_history = (
         store.fetch_raw_stock_kline_history(
-            start_date=history_start_date,
+            start_date=indicator_stock_history_start_date,
             end_date=as_of,
-            symbols=n_shape_symbols,
+            symbols=sorted(indicator_stock_symbols),
         )
-        if n_shape_symbols
+        if indicator_stock_symbols
         else pd.DataFrame()
     )
     historical_limit_up_pool = (
-        store.fetch_raw_limit_up_pool_history(history_start_date, as_of)
-        if n_shape_definition
+        store.fetch_raw_limit_up_pool_history(limit_up_pool_history_start_date, as_of)
+        if execution_plan.limit_up_pool_history_days > 0
         else pd.DataFrame()
     )
+    missing_indicator_stock_symbols: list[str] = []
+    if indicator_stock_symbols:
+        if stock_kline_history.empty:
+            missing_indicator_stock_symbols = sorted(indicator_stock_symbols)
+        else:
+            available_symbols = set(
+                stock_kline_history["symbol"].dropna().astype(str).tolist()
+            )
+            missing_indicator_stock_symbols = sorted(
+                set(indicator_stock_symbols) - available_symbols
+            )
+    if missing_indicator_stock_symbols:
+        source_statuses["stock_kline"]["status"] = "partial"
+        source_statuses["stock_kline"]["missing_symbols"] = (
+            missing_indicator_stock_symbols[:20]
+        )
+        warnings.append(
+            "Historical stock K-line rows are missing for "
+            f"{len(missing_indicator_stock_symbols)} symbols required by "
+            "indicator calculations."
+        )
     preloaded_stock_kline_rows = [
         {
             "ts": row["ts"],

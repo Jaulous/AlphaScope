@@ -1,34 +1,26 @@
-# AlphaScope Agent Notes
+Before doing any work, read and follow `./SOUL.md`.
 
-## Historical Decisions
+# AGENTS
 
-- AlphaScope uses a unified QuantConnect Lean-style `quant-core` architecture: `ingestion + universe + indicators + engine`.
-- This decision intentionally avoids a fragmented multi-layer pipeline because the market snapshot, active universe logic, and indicator computation all need to share a single synchronized context per trading day.
-- Compared with ad-hoc pipelines, the unified engine is more professional for quant systems because it provides deterministic daily execution, a single plugin contract, easier backtesting portability, and cleaner migration toward research/live parity.
+## Role
+This file is the agent entrypoint for this repository.
 
-## Adding Indicators
+## Required Read Order
+1. `./SOUL.md`
+2. `./docs/DOCS_INDEX.md`
+3. Every core file listed in `./docs/DOCS_INDEX.md`, in order.
 
-1. Create a new Python file in `packages/quant-core/src/quant_core/indicators/`.
-2. Subclass `BaseIndicator` and define `indicator_key`.
-3. Implement `compute(self, context, definition)`.
-4. Add a matching row to `indicator_definitions` if you want it enabled with custom config.
-5. Restart the server or rerun the fetch job.
+## Trigger Contract
+When an agent reads this file, it must:
+- Load current project context, architecture, workflow, decisions, and reference facts from docs before editing code.
+- Treat `./docs/*.md` as the maintained source of truth for repo behavior and operating constraints.
+- Update docs in the same change when architecture, workflow, runtime contracts, or operating guidance changes.
 
-## Active Theme Upgrade Example
-
-- Active themes are implemented as a special universe selection plus `ThemeVolumeIndicator`.
-- If you want a stronger rolling-window theme filter, keep the indicator unchanged and update the universe policy in `packages/quant-core/src/quant_core/universe/active_themes.py`.
-- Example upgrades: momentum-weighted theme turnover, decay-based expiration, minimum persistence days, or rank-stability filters.
-
-## Important Notes
-
-- Local package management must follow the machine standard:
-  - use `nvm`
-  - use Node `v24.14.0`
-  - use `corepack`-managed `pnpm`
-  - prefer the shell-provided `node/npm/npx/corepack/pnpm` from `~/.nvm/versions/node/v24.14.0/bin`
-  - treat `/opt/homebrew/bin/node|npm|npx` as fallback only, not the primary toolchain
-- Active themes default to AkShare `stock_board_concept_name_em` and are sorted by turnover descending.
-- The default behavior selects the top 20 themes, then applies `threshold`, `window_days`, and `expire_days` from `indicator_definitions.config`.
-- Future rolling-window or expiration logic changes should be made in `packages/quant-core/src/quant_core/universe/active_themes.py`, not scattered across indicators.
-- `stock_kline_daily` is populated from `packages/quant-core/src/quant_core/universe/tracked_equities.py`. Adjust `TRACKING_TOP_TURNOVER_COUNT`, `TRACKING_LIMIT_UP_POOL_COUNT`, and `TRACKING_INCLUDE_SYMBOLS` when you need broader or narrower daily kline coverage.
+## Project-Specific Notes
+- AlphaScope is a quant indicator observation platform for short-term market analysis, not an editable whiteboard product.
+- The canonical system shape is `AkShare -> raw Supabase tables -> quant-core -> serving tables -> FastAPI -> Next.js`, with indicator computation as the product center.
+- `quant-core` follows a unified Lean-style architecture: `ingestion + universe + indicators + engine`.
+- Active theme policy changes belong in `packages/quant-core/src/quant_core/universe/active_themes.py`, not in indicator implementations.
+- Tracked equity coverage is controlled from `packages/quant-core/src/quant_core/universe/tracked_equities.py` and the tracking env vars.
+- Local Node usage on this machine must prefer `nvm` Node `v24.14.0` and `corepack`-managed `pnpm`.
+- Git workflow is branch-first: never push directly to `main`; major completed changes must be verified and then pushed to a remote feature branch.
