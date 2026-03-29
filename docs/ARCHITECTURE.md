@@ -25,7 +25,8 @@ Explain how the system is structured and why.
 - `apps/server/src/limitboard_server/tasks/fetch_data.py`: canonical daily fetch pipeline. Resolves target trading day, fetches/reuses raw sources, preserves existing serving snapshots when critical raw data is missing, computes indicators, and records fetch runs.
 - `apps/server/src/limitboard_server/db/supabase_store.py`: persistence adapter for raw tables, serving tables, indicator definitions, and `fetch_runs`.
 - `apps/server/src/limitboard_server/scheduler.py`: scheduled execution wrapper around `run_daily_fetch()` plus startup backfill for missed trading days in long-running deployments.
-- `apps/server/vercel.json`: Vercel backend cron registration, used when the backend is deployed as a Vercel Python project.
+- `apps/web/vercel.json`: frontend-local Vercel config used when the Next.js app is deployed from the monorepo root with root directory `apps/web`.
+- `api/index.py`, repository-root `requirements.txt`, and repository-root `vercel.json`: Vercel backend entrypoint, dependency manifest, and cron registration for the production Python deployment.
 - `packages/quant-core/src/quant_core/engine.py`: unified execution engine that builds indicator requirements, selects active themes and tracked equities, and computes results from a synchronized context.
 - `packages/quant-core/src/quant_core/universe/active_themes.py`: active theme selection policy. This is the place for rolling-window, ranking, persistence, or expiration logic changes.
 - `packages/quant-core/src/quant_core/universe/tracked_equities.py`: tracked stock universe logic for dashboard K-line coverage.

@@ -20,7 +20,8 @@ AlphaScope is a Turborepo monorepo for a quant indicator observation platform. I
 ## Deployment Shape
 - Self-hosted backend: embedded startup backfill plus embedded scheduler.
 - Vercel frontend: deploy `apps/web` as one Vercel project.
-- Vercel backend: deploy `apps/server` as a separate Vercel project, with Vercel Cron Jobs hitting `/api/cron/fetch`.
+- Vercel frontend: deploy from repository root with project root directory `apps/web`, using [`apps/web/vercel.json`](apps/web/vercel.json).
+- Vercel backend: deploy repository root `.` as a separate Python Vercel project, using [`api/index.py`](api/index.py), [`requirements.txt`](requirements.txt), [`vercel.json`](vercel.json), and [`.python-version`](.python-version), with Vercel Cron Jobs hitting `/api/cron/fetch`.
 - `NEXT_PUBLIC_SERVER_URL` in the frontend must point to the deployed backend URL.
 
 ## Quick Start

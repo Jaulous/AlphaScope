@@ -1,0 +1,7 @@
+.git
+.next
+.turbo
+.venv
+coverage
+node_modules
+apps/web/.next

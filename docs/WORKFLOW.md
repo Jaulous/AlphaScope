@@ -58,12 +58,14 @@ Startup behavior:
 
 ## Deployment
 - Vercel monorepo setup should use two projects from the same repository:
-  - frontend project root directory: `apps/web`
-  - backend project root directory: `apps/server`
+  - frontend project deployment path: repository root `.`, with project root directory `apps/web`
+  - backend project deployment path: repository root `.`
+- The frontend Vercel deployment should use project root directory `apps/web` and local config [`apps/web/vercel.json`](../apps/web/vercel.json).
+- The backend Vercel deployment uses repository-root [`api/index.py`](../api/index.py), [`requirements.txt`](../requirements.txt), and [`vercel.json`](../vercel.json) so it can import both `apps/server/src` and `packages/quant-core/src`.
+- The backend Vercel deployment pins Python via [`../.python-version`](../.python-version) to avoid unsupported wheel builds in Vercel's Python runtime.
 - The backend Vercel project must have `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SERVER_CORS_ORIGINS`, and any tracking env vars configured.
 - The frontend Vercel project must have `NEXT_PUBLIC_SERVER_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` configured.
-- The backend Vercel project should enable including source files outside the root directory because it imports `packages/quant-core`.
-- Backend cron is declared in [`apps/server/vercel.json`](../apps/server/vercel.json) and runs once per day at `09:00 UTC`, which is `17:00 Asia/Shanghai`.
+- Backend cron is declared in [`vercel.json`](../vercel.json) and runs once per day at `09:00 UTC`, which is `17:00 Asia/Shanghai`.
 
 ## Git Rules
 - Never push directly to `main`.

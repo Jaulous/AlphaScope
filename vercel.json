@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm --filter @limitboard/server build",
+  "outputDirectory": "apps/server/build",
+  "crons": [
+    {
+      "path": "/api/cron/fetch",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "functions": {
+    "api/**/*.py": {
+      "excludeFiles": "{.git/**,.next/**,.turbo/**,node_modules/**,apps/web/**,packages/ui/**,packages/db-types/**,apps/server/tests/**,packages/quant-core/tests/**,coverage/**}"
+    }
+  }
+}

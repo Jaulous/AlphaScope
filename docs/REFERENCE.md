@@ -14,11 +14,16 @@ Store stable reference facts needed for implementation and operations.
 
 ## Repository Map
 - `apps/web/`: Next.js dashboard app and UI composition.
+- `apps/web/vercel.json`: frontend-local Vercel config for monorepo deployments.
 - `apps/server/`: FastAPI API, scheduler, fetch orchestration, Supabase persistence adapter, and tests.
+- `api/`: repository-root Vercel Python entrypoint used for the production backend deployment.
 - `packages/quant-core/`: unified quant engine, data providers, universes, indicators, and engine tests.
 - `packages/db-types/`: shared TypeScript database and API types.
 - `packages/ui/`: shared React UI primitives.
 - `supabase/migrations/`: database schema and seed migrations for raw, serving, and fetch-run tables.
+- `requirements.txt`: repository-root Python dependency manifest for the Vercel backend deployment.
+- `vercel.json`: repository-root Vercel cron and Python function bundling config.
+- `.python-version`: Vercel backend Python runtime pin.
 - `docs/`: maintained project documentation for context, architecture, workflow, decisions, and reference facts.
 - `STATUS.md`: last verified runtime state.
 - `TROUBLESHOOTING.md`: operational debugging guide.
