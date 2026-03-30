@@ -1,9 +1,7 @@
 import type { DashboardSnapshot } from "@limitboard/db-types";
 
-const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:8000";
-
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
-  const response = await fetch(`${serverUrl}/api/dashboard/latest`, {
+  const response = await fetch("/api/dashboard/latest", {
     cache: "no-store",
   });
   if (!response.ok) {

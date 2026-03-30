@@ -26,14 +26,14 @@ Explain how the system is structured and why.
 - `apps/server/src/limitboard_server/db/supabase_store.py`: persistence adapter for raw tables, serving tables, indicator definitions, and `fetch_runs`.
 - `apps/server/src/limitboard_server/scheduler.py`: scheduled execution wrapper around `run_daily_fetch()` plus startup backfill for missed trading days in long-running deployments.
 - `apps/web/vercel.json`: frontend-local Vercel config used when the Next.js app is deployed from the monorepo root with root directory `apps/web`.
-- `api/index.py`, repository-root `requirements.txt`, and repository-root `vercel.json`: Vercel backend entrypoint, dependency manifest, and cron registration for the production Python deployment.
+- `api/index.py`, repository-root `requirements.txt`, and repository-root `vercel.json`: Vercel backend entrypoint, dependency manifest, cron registration, and `/api* -> /api/index.py` rewrite config for the production Python deployment.
 - `packages/quant-core/src/quant_core/engine.py`: unified execution engine that builds indicator requirements, selects active themes and tracked equities, and computes results from a synchronized context.
 - `packages/quant-core/src/quant_core/universe/active_themes.py`: active theme selection policy. This is the place for rolling-window, ranking, persistence, or expiration logic changes.
 - `packages/quant-core/src/quant_core/universe/tracked_equities.py`: tracked stock universe logic for dashboard K-line coverage.
 - `apps/web/app/page.tsx` and `apps/web/components/dashboard-shell.tsx`: dashboard presentation of indicators, active themes, tracked stocks, and ingestion status.
 
 ## Data and Control Flow
-1. In a long-running deployment, backend startup compares stored serving dates against the trade calendar and backfills missed trading days up to the latest expected scheduled market date.
+1. In a long-running deployment, backend startup kicks off a background backfill job that compares stored serving dates against the trade calendar and fills missed trading days up to the latest expected scheduled market date without blocking API readiness.
 2. In a self-hosted deployment, the embedded scheduler triggers daily fetches after market close.
 3. In a Vercel backend deployment, Vercel Cron Jobs trigger `/api/cron/fetch`, which backfills missed trading days through the FastAPI app.
 4. The backend resolves the current reference date and maps it to the latest valid market date.

@@ -52,7 +52,7 @@ PYTHONPATH=apps/server/src:packages/quant-core/src .venv/bin/python3 -m limitboa
 
 Startup behavior:
 
-- When the backend process starts, it checks for missed trading-day snapshots since the latest stored serving date and backfills them before entering normal scheduler mode.
+- When the backend process starts, it immediately serves requests, starts the scheduler, and runs missed trading-day backfill in the background.
 - Before the final scheduled run of the day, startup catch-up only requires snapshots through the previous trading day.
 - Embedded scheduler is intended for long-running deployments. On Vercel, disable embedded scheduling and use the backend project's Vercel Cron Job instead.
 
@@ -62,6 +62,7 @@ Startup behavior:
   - backend project deployment path: repository root `.`
 - The frontend Vercel deployment should use project root directory `apps/web` and local config [`apps/web/vercel.json`](../apps/web/vercel.json).
 - The backend Vercel deployment uses repository-root [`api/index.py`](../api/index.py), [`requirements.txt`](../requirements.txt), and [`vercel.json`](../vercel.json) so it can import both `apps/server/src` and `packages/quant-core/src`.
+- Repository-root [`vercel.json`](../vercel.json) must keep the `/api` and `/api/(.*)` rewrites pointing at `api/index.py`; without those rewrites the FastAPI deployment only exposes the function entrypoint and nested API paths return Vercel `NOT_FOUND`.
 - The backend Vercel deployment pins Python via [`../.python-version`](../.python-version) to avoid unsupported wheel builds in Vercel's Python runtime.
 - The backend Vercel project must have `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SERVER_CORS_ORIGINS`, and any tracking env vars configured.
 - The frontend Vercel project must have `NEXT_PUBLIC_SERVER_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` configured.

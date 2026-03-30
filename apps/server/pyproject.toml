@@ -13,7 +13,7 @@ dependencies = [
   "pandas==2.2.3",
   "pydantic-settings==2.8.1",
   "pytz==2024.2",
-  "supabase==2.13.0",
+  "supabase==2.16.0",
   "uvicorn==0.34.0"
 ]
 

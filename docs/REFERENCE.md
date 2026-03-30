@@ -42,6 +42,7 @@ Store stable reference facts needed for implementation and operations.
 - Key env vars:
   - `SUPABASE_URL`
   - `SUPABASE_SECRET_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (legacy fallback only)
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
   - `NEXT_PUBLIC_SERVER_URL`

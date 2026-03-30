@@ -309,16 +309,18 @@ class SupabaseStore:
         counts: dict[str, Any] | None = None,
     ) -> None:
         self.client.table("fetch_runs").insert(
-            {
-                "trigger": trigger,
-                "reference_date": reference_date.isoformat(),
-                "target_date": target_date.isoformat(),
-                "status": status,
-                "skipped_reason": skipped_reason,
-                "source_statuses": source_statuses or {},
-                "warnings": warnings or [],
-                "counts": counts or {},
-            }
+            self._sanitize_row(
+                {
+                    "trigger": trigger,
+                    "reference_date": reference_date.isoformat(),
+                    "target_date": target_date.isoformat(),
+                    "status": status,
+                    "skipped_reason": skipped_reason,
+                    "source_statuses": source_statuses or {},
+                    "warnings": warnings or [],
+                    "counts": counts or {},
+                }
+            )
         ).execute()
 
     def fetch_latest_fetch_run(self) -> dict[str, Any] | None:
@@ -354,7 +356,9 @@ class SupabaseStore:
                     "raw_data": row.get("raw_data", {}),
                 }
             )
-        payload = self._dedupe_payload(payload, keys=["key", "indicator_date"])
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["key", "indicator_date"])
+        )
         self.client.table("daily_indicators").upsert(
             payload, on_conflict="key,indicator_date"
         ).execute()
@@ -380,7 +384,9 @@ class SupabaseStore:
                     "metadata": {},
                 }
             )
-        payload = self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
+        )
         self.client.table("raw_market_snapshot_daily").upsert(
             payload, on_conflict="snapshot_date,symbol"
         ).execute()
@@ -404,7 +410,9 @@ class SupabaseStore:
                     "metadata": {},
                 }
             )
-        payload = self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
+        )
         self.client.table("raw_limit_up_pool_daily").upsert(
             payload, on_conflict="snapshot_date,symbol"
         ).execute()
@@ -429,7 +437,9 @@ class SupabaseStore:
                     "metadata": {},
                 }
             )
-        payload = self._dedupe_payload(payload, keys=["snapshot_date", "theme_name"])
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["snapshot_date", "theme_name"])
+        )
         self.client.table("raw_concept_boards_daily").upsert(
             payload, on_conflict="snapshot_date,theme_name"
         ).execute()
@@ -458,7 +468,9 @@ class SupabaseStore:
                     "metadata": row.get("metadata", {}),
                 }
             )
-        payload = self._dedupe_payload(payload, keys=["ts", "symbol"])
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["ts", "symbol"])
+        )
         self.client.table("raw_stock_kline_daily").upsert(
             payload, on_conflict="ts,symbol"
         ).execute()
@@ -467,7 +479,9 @@ class SupabaseStore:
     def upsert_theme_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
-        rows = self._dedupe_payload(rows, keys=["indicator_date", "theme_name"])
+        rows = self._sanitize_rows(
+            self._dedupe_payload(rows, keys=["indicator_date", "theme_name"])
+        )
         self.client.table("daily_themes_volume").upsert(
             rows, on_conflict="indicator_date,theme_name"
         ).execute()
@@ -475,7 +489,7 @@ class SupabaseStore:
     def upsert_stock_kline_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
-        rows = self._dedupe_payload(rows, keys=["ts", "symbol"])
+        rows = self._sanitize_rows(self._dedupe_payload(rows, keys=["ts", "symbol"]))
         self.client.table("stock_kline_daily").upsert(
             rows, on_conflict="ts,symbol"
         ).execute()
@@ -707,3 +721,28 @@ class SupabaseStore:
         for row in rows:
             deduped[tuple(row.get(key) for key in keys)] = row
         return list(deduped.values())
+
+    @classmethod
+    def _sanitize_rows(cls, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [cls._sanitize_row(row) for row in rows]
+
+    @classmethod
+    def _sanitize_row(cls, row: dict[str, Any]) -> dict[str, Any]:
+        return {key: cls._sanitize_value(value) for key, value in row.items()}
+
+    @classmethod
+    def _sanitize_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: cls._sanitize_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [cls._sanitize_value(item) for item in value]
+        if value is None:
+            return None
+        if pd.isna(value):
+            return None
+        if hasattr(value, "item") and not isinstance(value, (str, bytes, bytearray)):
+            try:
+                return value.item()
+            except Exception:
+                return value
+        return value

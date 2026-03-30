@@ -1,0 +1,3 @@
+[console_scripts]
+app = limitboard_server.main:app
+limitboard-fetch = limitboard_server.cli:main

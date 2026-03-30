@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,7 +16,11 @@ scheduler = FetchScheduler()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.scheduler_enabled:
-        await asyncio.to_thread(scheduler.catch_up_missing_trading_days)
+        threading.Thread(
+            target=scheduler.catch_up_missing_trading_days,
+            name="startup-backfill",
+            daemon=True,
+        ).start()
         scheduler.start()
     try:
         yield
