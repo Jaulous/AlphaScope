@@ -34,5 +34,6 @@ If this is an open-source repo, also keep these up to date:
 - `../README.md`: human-first project overview and quick start.
 - `../CHANGELOG.md`: major project change log for backtracking and historical context.
 - `./PRD.md`: current product requirements for the indicator observation platform.
+- `./RAW_DATA_MODEL.md`: target raw-layer architecture for large-scale indicator growth.
 - `../STATUS.md`: last verified runtime snapshot and current operational state.
 - `../TROUBLESHOOTING.md`: incident-oriented debugging guidance.

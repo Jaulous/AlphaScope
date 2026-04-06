@@ -19,6 +19,7 @@ AlphaScope exists to provide a reliable quant indicator observation platform for
 ## Goals
 - Produce a deterministic daily indicator snapshot from a unified backend pipeline.
 - Persist both raw inputs and serving outputs so the dashboard can serve stored data instead of recomputing ad hoc on every request.
+- Redesign the raw layer so it preserves enough direct-source data to support a future library of roughly `100+` indicators without repeated schema churn.
 - Keep theme selection, tracked equities, and indicator computation synchronized to the same trading day context.
 - Support local development and operator-triggered fetches with the same core fetch pipeline used by scheduled and on-demand runs.
 - Expose enough ingestion status to diagnose stale or partial market snapshots.
@@ -39,6 +40,7 @@ AlphaScope exists to provide a reliable quant indicator observation platform for
 - Market data source is primarily AkShare, so schema drift and source instability are ongoing external constraints.
 - Supabase is required for persistence and serving. Missing `SUPABASE_URL` or `SUPABASE_SECRET_KEY` blocks dashboard data availability.
 - Daily execution is keyed to the latest confirmed trading day; weekends and holidays intentionally backfill the most recent trading day.
+- The raw layer should be treated as a durable research substrate, not a narrow cache of only the current dashboard's required inputs.
 - The repository is a monorepo with a mixed Node.js and Python toolchain.
 - Local Node work on this machine must use `nvm` with Node `v24.14.0` and `corepack`-managed `pnpm`.
 - Python packages require Python `>=3.11`.

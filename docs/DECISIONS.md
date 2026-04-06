@@ -17,6 +17,7 @@ Record important decisions with rationale and impact.
 | D-002 | 2026-03-15 | Accepted | Position AlphaScope as a quant indicator observation platform, not an editable whiteboard | Indicator computation and synchronized market context are the core product value; editable canvas behavior diluted the product shape | UI is a read-only observation surface and whiteboard behavior is non-canonical |
 | D-003 | 2026-03-15 | Accepted | Persist both raw and serving market data in Supabase | Stored raw inputs enable reuse, reproducibility, and safer recovery from partial source failures | Dashboard serving depends on Supabase and the `raw_*` plus serving tables |
 | D-004 | 2026-03-15 | Accepted | Standardize the repo on `SOUL.md`, `AGENTS.md`, and `docs/` core documents | Humans and agents need one predictable read path and maintained source of truth | Documentation upkeep becomes part of normal repo changes |
+| D-005 | 2026-04-06 | Accepted | Redesign the raw layer as `landing/audit + canonical raw facts` instead of keeping only a few indicator-specific raw tables | A future library of `100+` indicators needs broad source preservation and stable domain-grain raw tables, not a narrow cache shaped around the first dashboard metrics | Raw V2 becomes the target schema; current Raw V1 tables are transitional until ingestion is cut over |
 
 ## Decision Entry Template
 - **ID**: `D-XXX`

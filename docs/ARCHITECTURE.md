@@ -31,6 +31,7 @@ Explain how the system is structured and why.
 - `packages/quant-core/src/quant_core/universe/active_themes.py`: active theme selection policy. This is the place for rolling-window, ranking, persistence, or expiration logic changes.
 - `packages/quant-core/src/quant_core/universe/tracked_equities.py`: tracked stock universe logic for dashboard K-line coverage.
 - `apps/web/app/page.tsx` and `apps/web/components/dashboard-shell.tsx`: dashboard presentation of indicators, active themes, tracked stocks, and ingestion status.
+- `supabase/migrations/0007_raw_data_layer_v2.sql` and [`docs/RAW_DATA_MODEL.md`](./RAW_DATA_MODEL.md): the new raw-layer target architecture for large-scale indicator growth.
 
 ## Data and Control Flow
 1. In a long-running deployment, backend startup kicks off a background backfill job that compares stored serving dates against the trade calendar and fills missed trading days up to the latest expected scheduled market date without blocking API readiness.
@@ -38,13 +39,14 @@ Explain how the system is structured and why.
 3. In a Vercel backend deployment, Vercel Cron Jobs trigger `/api/cron/fetch`, which backfills missed trading days through the FastAPI app.
 4. The backend resolves the current reference date and maps it to the latest valid market date.
 5. Raw datasets are fetched from AkShare with retry and selective reuse of already stored raw data for the same trading day.
-6. Raw datasets are persisted into `raw_*` Supabase tables.
-7. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
-8. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
-9. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
-10. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
-11. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
-11. Next.js renders the dashboard from the API response and does not compute market state on the client.
+6. Current runtime persists into Raw V1 tables (`raw_market_snapshot_daily`, `raw_limit_up_pool_daily`, `raw_concept_boards_daily`, `raw_stock_kline_daily`).
+7. Raw V2 is the target shape: a landing/audit layer (`raw_ingestion_runs`, `raw_dataset_batches`, `raw_source_payload_rows`) plus canonical raw domain tables (`raw_trade_calendar`, `raw_security_master`, `raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, `raw_concept_board_daily`, `raw_concept_board_constituents_daily`, `raw_index_daily_quotes`).
+8. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
+9. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
+10. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
+11. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
+12. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
+13. Next.js renders the dashboard from the API response and does not compute market state on the client.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.
@@ -60,3 +62,4 @@ Explain how the system is structured and why.
 - Legacy naming still exists in some package/module identifiers (`limitboard_*`), even though the canonical product is AlphaScope.
 - Stock K-line name normalization is still imperfect for some symbols because upstream raw data is inconsistent.
 - Multiprocessing in `quant-core` improves throughput for larger indicator sets but increases runtime complexity and requires module-safe entrypoints.
+- The current production runtime still writes Raw V1 tables, so the repository is in a transition state until ingestion is cut over to Raw V2.

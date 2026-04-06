@@ -21,11 +21,13 @@ Store stable reference facts needed for implementation and operations.
 - `packages/db-types/`: shared TypeScript database and API types.
 - `packages/ui/`: shared React UI primitives.
 - `supabase/migrations/`: database schema and seed migrations for raw, serving, and fetch-run tables.
+- `supabase/migrations/0007_raw_data_layer_v2.sql`: non-breaking Raw V2 schema introduction for landing/audit tables plus canonical raw fact tables.
 - `requirements.txt`: repository-root Python dependency manifest for the Vercel backend deployment.
 - `vercel.json`: repository-root Vercel cron and Python function bundling config.
 - `.python-version`: Vercel backend Python runtime pin.
 - `docs/`: maintained project documentation for context, architecture, workflow, decisions, and reference facts.
 - `CHANGELOG.md`: high-signal log of important project changes for human and agent backtracking.
+- `docs/RAW_DATA_MODEL.md`: detailed raw-layer redesign doc and migration path.
 - `STATUS.md`: last verified runtime state.
 - `TROUBLESHOOTING.md`: operational debugging guide.
 
@@ -62,6 +64,27 @@ Store stable reference facts needed for implementation and operations.
 - Supabase Postgres: system of record for raw datasets, serving snapshots, definitions, board documents, and ingestion run logs.
 - FastAPI: backend API surface.
 - Next.js: frontend rendering surface.
+
+## Raw Storage Notes
+- Raw V1 tables currently used by production ingestion:
+  - `raw_market_snapshot_daily`
+  - `raw_limit_up_pool_daily`
+  - `raw_concept_boards_daily`
+  - `raw_stock_kline_daily`
+- Raw V2 tables introduced for the next architecture phase:
+  - landing/audit:
+    - `raw_ingestion_runs`
+    - `raw_dataset_batches`
+    - `raw_source_payload_rows`
+  - canonical raw facts:
+    - `raw_trade_calendar`
+    - `raw_security_master`
+    - `raw_equity_daily_quotes`
+    - `raw_equity_daily_limit_events`
+    - `raw_concept_board_daily`
+    - `raw_concept_board_constituents_daily`
+    - `raw_index_daily_quotes`
+- Raw V2 is intended to support a broad indicator library; the runtime code has not yet switched from Raw V1 to Raw V2.
 
 ## Glossary
 - `raw_* tables`: persisted source-of-truth ingestion tables used to rebuild market context.
