@@ -25,6 +25,7 @@ Store stable reference facts needed for implementation and operations.
 - `vercel.json`: repository-root Vercel cron and Python function bundling config.
 - `.python-version`: Vercel backend Python runtime pin.
 - `docs/`: maintained project documentation for context, architecture, workflow, decisions, and reference facts.
+- `CHANGELOG.md`: high-signal log of important project changes for human and agent backtracking.
 - `STATUS.md`: last verified runtime state.
 - `TROUBLESHOOTING.md`: operational debugging guide.
 

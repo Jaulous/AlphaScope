@@ -15,6 +15,7 @@ When an agent reads this file, it must:
 - Load current project context, architecture, workflow, decisions, and reference facts from docs before editing code.
 - Treat `./docs/*.md` as the maintained source of truth for repo behavior and operating constraints.
 - Update docs in the same change when architecture, workflow, runtime contracts, or operating guidance changes.
+- Update `./CHANGELOG.md` in the same change when a major milestone or important repo-facing change is completed.
 
 ## Project-Specific Notes
 - AlphaScope is a quant indicator observation platform for short-term market analysis, not an editable whiteboard product.
@@ -24,3 +25,4 @@ When an agent reads this file, it must:
 - Tracked equity coverage is controlled from `packages/quant-core/src/quant_core/universe/tracked_equities.py` and the tracking env vars.
 - Local Node usage on this machine must prefer `nvm` Node `v24.14.0` and `corepack`-managed `pnpm`.
 - Git workflow is branch-first: never push directly to `main`; major completed changes must be verified and then pushed to a remote feature branch.
+- Important project changes must be traceable in `CHANGELOG.md`.

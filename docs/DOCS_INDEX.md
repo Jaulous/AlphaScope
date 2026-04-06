@@ -32,6 +32,7 @@ If this is an open-source repo, also keep these up to date:
 
 ## Supporting Docs
 - `../README.md`: human-first project overview and quick start.
+- `../CHANGELOG.md`: major project change log for backtracking and historical context.
 - `./PRD.md`: current product requirements for the indicator observation platform.
 - `../STATUS.md`: last verified runtime snapshot and current operational state.
 - `../TROUBLESHOOTING.md`: incident-oriented debugging guidance.
