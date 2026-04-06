@@ -19,7 +19,9 @@ sys.modules.setdefault("requests", SimpleNamespace())
 from quant_core.indicators.active_capital_ratio import ActiveCapitalRatioIndicator
 from quant_core.indicators.decliner_count import DeclinerCountIndicator
 from quant_core.indicators.down_limit_count import DownLimitCountIndicator
+from quant_core.indicators.highest_board import HighestBoardIndicator
 from quant_core.indicators.market_turnover import MarketTurnoverIndicator
+from quant_core.indicators.n_shape_limit_up_count import NShapeLimitUpCountIndicator
 from quant_core.indicators.up_limit_count import UpLimitCountIndicator
 from quant_core.types import IndicatorContext, IndicatorDefinition, TrackingConfig
 from quant_core.universe.active_themes import ActiveThemesUniverse
@@ -163,6 +165,112 @@ class RawV2DatasetPreferenceTests(unittest.TestCase):
         self.assertEqual(len(themes), 1)
         self.assertEqual(themes[0].name, "AI")
         self.assertEqual(tracked, ["000003", "000002", "000001"])
+
+    def test_highest_board_uses_current_limit_event_dataset(self) -> None:
+        context = self._context(
+            datasets={
+                "equity_daily_limit_events": pd.DataFrame(
+                    [
+                        {
+                            "symbol": "000001",
+                            "event_side": "up",
+                            "name": "Ping An",
+                            "board_count": 2,
+                        },
+                        {
+                            "symbol": "000002",
+                            "event_side": "up",
+                            "name": "Vanke",
+                            "board_count": 4,
+                        },
+                        {
+                            "symbol": "000003",
+                            "event_side": "down",
+                            "name": "Down Test",
+                        },
+                    ]
+                )
+            }
+        )
+
+        result = HighestBoardIndicator().compute(
+            context,
+            IndicatorDefinition(
+                key="highest_board",
+                type="highest_board",
+                name="Highest Board",
+            ),
+        )
+
+        self.assertEqual(result.value_numeric, 4.0)
+        self.assertEqual(result.raw_data["leaders"], ["Vanke"])
+
+    def test_n_shape_limit_up_count_uses_historical_limit_event_dataset(self) -> None:
+        context = IndicatorContext(
+            as_of=pd.Timestamp("2026-04-03").date(),
+            market_snapshot=pd.DataFrame(),
+            limit_up_pool=pd.DataFrame(),
+            concept_boards=pd.DataFrame(),
+            stock_kline_history=pd.DataFrame(
+                [
+                    {
+                        "ts": "2026-03-24T00:00:00+08:00",
+                        "symbol": "000001",
+                        "name": "Ping An",
+                        "close": 10.0,
+                    },
+                    {
+                        "ts": "2026-03-28T00:00:00+08:00",
+                        "symbol": "000001",
+                        "name": "Ping An",
+                        "close": 9.0,
+                    },
+                    {
+                        "ts": "2026-04-03T00:00:00+08:00",
+                        "symbol": "000001",
+                        "name": "Ping An",
+                        "close": 10.2,
+                    },
+                ]
+            ),
+            datasets={
+                "equity_daily_limit_events": pd.DataFrame(
+                    [
+                        {
+                            "trade_date": "2026-04-03",
+                            "symbol": "000001",
+                            "event_side": "up",
+                            "name": "Ping An",
+                            "board_count": 1,
+                        }
+                    ]
+                ),
+                "historical_equity_daily_limit_events": pd.DataFrame(
+                    [
+                        {
+                            "trade_date": "2026-03-24",
+                            "symbol": "000001",
+                            "event_side": "up",
+                            "name": "Ping An",
+                            "board_count": 1,
+                        }
+                    ]
+                ),
+            },
+        )
+
+        result = NShapeLimitUpCountIndicator().compute(
+            context,
+            IndicatorDefinition(
+                key="n_shape_limit_up_count",
+                type="n_shape_limit_up_count",
+                name="N Shape Limit Up Count",
+                config={"lookback_days": 30, "min_pullback_pct": 5.0, "min_gap_days": 2},
+            ),
+        )
+
+        self.assertEqual(result.value_numeric, 1.0)
+        self.assertEqual(result.raw_data["stocks"][0]["symbol"], "000001")
 
 
 if __name__ == "__main__":

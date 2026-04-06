@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T21:33:23+08:00
+- Extended the Raw V2 read migration to the remaining limit-event-driven indicators by moving `highest_board` and the limit-event parts of `n_shape_limit_up_count` onto canonical Raw V2 datasets.
+- Added historical Raw V2 limit-event reads so `n_shape_limit_up_count` no longer depends on Raw V1 limit-up-pool history for prior-limit detection.
+- Hardened `n_shape_limit_up_count` against sparse K-line schemas and timezone mismatches during historical comparisons.
+
 ### 2026-04-06T21:28:27+08:00
 - Moved the first computation batch off Raw V1-only reads by teaching the runtime to load canonical Raw V2 quote, limit-event, and concept-board tables back into the execution context.
 - Migrated the active-theme universe, tracked-equities universe, and five base indicators to prefer Raw V2 data with deterministic Raw V1 compatibility fallback when canonical rows are unavailable.

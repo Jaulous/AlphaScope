@@ -105,6 +105,65 @@ def get_equity_daily_limit_events(context: IndicatorContext) -> pd.DataFrame:
     return pd.DataFrame(payload, columns=columns)
 
 
+def get_historical_equity_daily_limit_events(context: IndicatorContext) -> pd.DataFrame:
+    events = context.datasets.get("historical_equity_daily_limit_events")
+    if events is not None and not events.empty:
+        return events.copy()
+
+    history = context.historical_limit_up_pool
+    if history is None or history.empty:
+        return pd.DataFrame(
+            columns=[
+                "trade_date",
+                "symbol",
+                "event_side",
+                "name",
+                "board_count",
+                "seal_amount",
+                "turnover_rate",
+                "first_limit_time",
+                "last_limit_time",
+                "limit_type",
+            ]
+        )
+
+    payload: list[dict[str, object]] = []
+    for _, row in history.iterrows():
+        symbol = str(row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        trade_date = row.get("snapshot_date")
+        payload.append(
+            {
+                "trade_date": trade_date,
+                "symbol": symbol,
+                "event_side": "up",
+                "name": row.get("name"),
+                "board_count": row.get("board_count"),
+                "seal_amount": row.get("seal_funds"),
+                "turnover_rate": row.get("turnover_rate"),
+                "first_limit_time": row.get("first_limit_time"),
+                "last_limit_time": row.get("last_limit_time"),
+                "limit_type": "pool",
+            }
+        )
+    return pd.DataFrame(payload)
+
+
+def get_current_up_limit_events(context: IndicatorContext) -> pd.DataFrame:
+    events = get_equity_daily_limit_events(context)
+    if "event_side" not in events.columns:
+        return pd.DataFrame(columns=events.columns)
+    return events[events["event_side"] == "up"].copy()
+
+
+def get_historical_up_limit_events(context: IndicatorContext) -> pd.DataFrame:
+    events = get_historical_equity_daily_limit_events(context)
+    if "event_side" not in events.columns:
+        return pd.DataFrame(columns=events.columns)
+    return events[events["event_side"] == "up"].copy()
+
+
 def get_concept_board_daily(context: IndicatorContext) -> pd.DataFrame:
     boards = context.datasets.get("concept_board_daily")
     if boards is not None and not boards.empty:

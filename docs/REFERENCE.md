@@ -94,7 +94,7 @@ Store stable reference facts needed for implementation and operations.
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
-- The first migrated read-path batch now prefers canonical Raw V2 reads for:
+- The runtime read path now prefers canonical Raw V2 reads for:
   - `active_themes`
   - `tracked_equities`
   - `market_turnover`
@@ -102,9 +102,11 @@ Store stable reference facts needed for implementation and operations.
   - `active_capital_ratio`
   - `up_limit_count`
   - `down_limit_count`
+  - `highest_board`
+  - `n_shape_limit_up_count` for current and historical limit-event inputs
 - The runtime reads Raw V2 rows back from Supabase when available and falls back to deterministic Raw V1 field mapping when those rows are missing.
 - The remaining canonical tables are schema-ready but not yet populated by the runtime.
-- The remaining indicators still depend on Raw V1 compatibility inputs today; Raw V2 is not yet the sole engine read path.
+- The engine still depends on the transitional stock K-line history path today; Raw V2 is not yet the sole runtime input layer.
 
 ## Glossary
 - `raw_* tables`: persisted source-of-truth ingestion tables used to rebuild market context.

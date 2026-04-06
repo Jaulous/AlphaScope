@@ -342,6 +342,15 @@ def run_daily_fetch(
         if execution_plan.limit_up_pool_history_days > 0
         else pd.DataFrame()
     )
+    historical_raw_v2_datasets = _load_historical_indicator_raw_v2_datasets(
+        store=store,
+        as_of=as_of,
+        limit_up_pool_history_start_date=limit_up_pool_history_start_date,
+        execution_plan=execution_plan,
+        source_statuses=source_statuses,
+        warnings=warnings,
+        historical_limit_up_pool=historical_limit_up_pool,
+    )
     missing_indicator_stock_symbols: list[str] = []
     if indicator_stock_symbols:
         if stock_kline_history.empty:
@@ -393,7 +402,7 @@ def run_daily_fetch(
         stock_kline_history=stock_kline_history,
         tracking_config=tracking_config,
         preloaded_stock_kline_rows=preloaded_stock_kline_rows,
-        datasets_override=pre_context.datasets,
+        datasets_override={**pre_context.datasets, **historical_raw_v2_datasets},
     )
 
     indicator_rows = [
@@ -678,6 +687,57 @@ def _load_indicator_raw_v2_datasets(
     return datasets
 
 
+def _load_historical_indicator_raw_v2_datasets(
+    *,
+    store: SupabaseStore,
+    as_of: date,
+    limit_up_pool_history_start_date: date,
+    execution_plan: Any,
+    source_statuses: dict[str, Any],
+    warnings: list[str],
+    historical_limit_up_pool: pd.DataFrame,
+) -> dict[str, pd.DataFrame]:
+    datasets: dict[str, pd.DataFrame] = {}
+    read_errors: dict[str, str] = {}
+    fallback_datasets: list[str] = []
+
+    if execution_plan.limit_up_pool_history_days > 0:
+        try:
+            history_events = store.fetch_raw_equity_daily_limit_events_history_v2(
+                limit_up_pool_history_start_date,
+                as_of,
+                event_side="up",
+            )
+            if not history_events.empty:
+                datasets["historical_equity_daily_limit_events"] = history_events
+        except Exception as exc:
+            read_errors["historical_equity_daily_limit_events"] = str(exc)
+
+        if "historical_equity_daily_limit_events" not in datasets:
+            datasets["historical_equity_daily_limit_events"] = (
+                _build_historical_equity_daily_limit_events_fallback(
+                    historical_limit_up_pool=historical_limit_up_pool
+                )
+            )
+            fallback_datasets.append("historical_equity_daily_limit_events")
+
+    source_statuses["raw_v2_historical_reads"] = {
+        "status": "ready",
+        "datasets": {
+            key: int(len(frame.index))
+            for key, frame in datasets.items()
+        },
+        "fallback_datasets": fallback_datasets,
+    }
+    if read_errors:
+        source_statuses["raw_v2_historical_reads"]["read_errors"] = read_errors
+        warnings.append(
+            "Some historical Raw V2 reads failed; indicator computation used fallback mappings for missing history datasets."
+        )
+
+    return datasets
+
+
 def _build_equity_daily_quotes_fallback(
     *,
     as_of: date,
@@ -760,6 +820,48 @@ def _build_equity_daily_limit_events_fallback(
                     "limit_type": "threshold_proxy",
                 }
             )
+    return pd.DataFrame(payload)
+
+
+def _build_historical_equity_daily_limit_events_fallback(
+    *,
+    historical_limit_up_pool: pd.DataFrame,
+) -> pd.DataFrame:
+    if historical_limit_up_pool.empty:
+        return pd.DataFrame(
+            columns=[
+                "trade_date",
+                "symbol",
+                "event_side",
+                "name",
+                "board_count",
+                "seal_amount",
+                "turnover_rate",
+                "first_limit_time",
+                "last_limit_time",
+                "limit_type",
+            ]
+        )
+
+    payload: list[dict[str, Any]] = []
+    for _, row in historical_limit_up_pool.iterrows():
+        symbol = str(row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        payload.append(
+            {
+                "trade_date": row.get("snapshot_date"),
+                "symbol": symbol,
+                "event_side": "up",
+                "name": row.get("name"),
+                "board_count": row.get("board_count"),
+                "seal_amount": row.get("seal_funds"),
+                "turnover_rate": row.get("turnover_rate"),
+                "first_limit_time": row.get("first_limit_time"),
+                "last_limit_time": row.get("last_limit_time"),
+                "limit_type": "pool",
+            }
+        )
     return pd.DataFrame(payload)
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from quant_core.datasets import get_current_up_limit_events
 from quant_core.indicators.base import BaseIndicator
 from quant_core.types import IndicatorContext, IndicatorDefinition, IndicatorResult
 
@@ -11,7 +12,8 @@ class HighestBoardIndicator(BaseIndicator):
     display_name = "Highest Board"
 
     def compute(self, context: IndicatorContext, definition: IndicatorDefinition) -> IndicatorResult:
-        if context.limit_up_pool.empty:
+        current_up_events = get_current_up_limit_events(context)
+        if current_up_events.empty:
             return IndicatorResult(
                 key=definition.key,
                 name=definition.name,
@@ -20,9 +22,16 @@ class HighestBoardIndicator(BaseIndicator):
                 value_text="0",
                 unit="boards",
             )
-        board_counts = pd.to_numeric(context.limit_up_pool.get("board_count"), errors="coerce").fillna(1)
+        board_counts = pd.to_numeric(
+            current_up_events.get("board_count"), errors="coerce"
+        ).fillna(1)
         highest = int(board_counts.max()) if not board_counts.empty else 0
-        leaders = context.limit_up_pool.loc[board_counts == highest, "name"].dropna().astype(str).tolist()[:8]
+        leaders = (
+            current_up_events.loc[board_counts == highest, "name"]
+            .dropna()
+            .astype(str)
+            .tolist()[:8]
+        )
         return IndicatorResult(
             key=definition.key,
             name=definition.name,

@@ -247,6 +247,49 @@ class SupabaseStore:
             ],
         )
 
+    def fetch_raw_equity_daily_limit_events_history_v2(
+        self,
+        start_date: date,
+        end_date: date,
+        *,
+        event_side: str | None = None,
+    ) -> pd.DataFrame:
+        query = (
+            self.client.table("raw_equity_daily_limit_events")
+            .select(
+                "trade_date,symbol,event_side,market,name,board_count,seal_amount,seal_volume,turnover_rate,open_times,first_limit_time,last_limit_time,limit_reason,limit_type,source_name,source_payload,metadata"
+            )
+            .gte("trade_date", start_date.isoformat())
+            .lte("trade_date", end_date.isoformat())
+            .order("trade_date", desc=False)
+            .order("symbol", desc=False)
+        )
+        if event_side:
+            query = query.eq("event_side", event_side)
+        response = query.execute()
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "trade_date",
+                "symbol",
+                "event_side",
+                "market",
+                "name",
+                "board_count",
+                "seal_amount",
+                "seal_volume",
+                "turnover_rate",
+                "open_times",
+                "first_limit_time",
+                "last_limit_time",
+                "limit_reason",
+                "limit_type",
+                "source_name",
+                "source_payload",
+                "metadata",
+            ],
+        )
+
     def fetch_raw_concept_board_daily_v2(self, trade_date: date) -> pd.DataFrame:
         response = (
             self.client.table("raw_concept_board_daily")

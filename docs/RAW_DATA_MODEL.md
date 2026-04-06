@@ -198,7 +198,7 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
-- The first runtime read-path batch now prefers canonical Raw V2 reads for:
+- The runtime read path now prefers canonical Raw V2 reads for:
   - active theme universe
   - tracked equities universe
   - `market_turnover`
@@ -206,6 +206,8 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
   - `active_capital_ratio`
   - `up_limit_count`
   - `down_limit_count`
+- `highest_board`
+- `n_shape_limit_up_count` for current and historical limit-event inputs
 - The runtime currently reads canonical Raw V2 rows from Supabase when available and falls back to deterministic Raw V1-to-V2 field mapping when they are missing.
 - The remaining canonical tables are not yet populated by the runtime.
-- Raw V2 is now the active schema direction and a partial runtime read path, but not yet the sole engine input.
+- Raw V2 is now the active schema direction and the preferred runtime read path for current indicators, but not yet the sole engine input because stock K-line history still comes through the transitional path.

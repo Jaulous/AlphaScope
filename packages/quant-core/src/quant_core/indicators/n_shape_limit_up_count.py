@@ -4,6 +4,10 @@ from datetime import timedelta
 
 import pandas as pd
 
+from quant_core.datasets import (
+    get_current_up_limit_events,
+    get_historical_up_limit_events,
+)
 from quant_core.indicators.base import BaseIndicator
 from quant_core.types import (
     IndicatorContext,
@@ -36,10 +40,11 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
     def compute(
         self, context: IndicatorContext, definition: IndicatorDefinition
     ) -> IndicatorResult:
+        current_up_events = get_current_up_limit_events(context)
+        historical_up_events = get_historical_up_limit_events(context)
         if (
-            context.limit_up_pool.empty
-            or context.historical_limit_up_pool is None
-            or context.historical_limit_up_pool.empty
+            current_up_events.empty
+            or historical_up_events.empty
             or context.stock_kline_history is None
             or context.stock_kline_history.empty
         ):
@@ -60,20 +65,24 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
             definition.config.get("breakout_tolerance_pct", 0.0)
         )
 
-        today = context.limit_up_pool.copy()
+        today = current_up_events.copy()
         today["symbol"] = today["symbol"].astype(str)
 
-        history_pool = context.historical_limit_up_pool.copy()
-        history_pool["snapshot_date"] = pd.to_datetime(
-            history_pool["snapshot_date"], errors="coerce"
+        history_pool = historical_up_events.copy()
+        history_pool["trade_date"] = pd.to_datetime(
+            history_pool["trade_date"], errors="coerce"
         )
         history_pool["symbol"] = history_pool["symbol"].astype(str)
-        history_pool = history_pool.dropna(subset=["snapshot_date"])
+        history_pool = history_pool.dropna(subset=["trade_date"])
 
         kline_history = context.stock_kline_history.copy()
         kline_history["ts"] = pd.to_datetime(kline_history["ts"], errors="coerce")
+        if hasattr(kline_history["ts"].dt, "tz") and kline_history["ts"].dt.tz is not None:
+            kline_history["ts"] = kline_history["ts"].dt.tz_localize(None)
         kline_history["symbol"] = kline_history["symbol"].astype(str)
         for column in ("open", "high", "low", "close", "pct_change"):
+            if column not in kline_history.columns:
+                kline_history[column] = pd.NA
             kline_history[column] = pd.to_numeric(
                 kline_history[column], errors="coerce"
             )
@@ -103,14 +112,14 @@ class NShapeLimitUpCountIndicator(BaseIndicator):
 
             prior_limits = history_pool[
                 (history_pool["symbol"] == symbol)
-                & (history_pool["snapshot_date"] < as_of_ts)
-                & (history_pool["snapshot_date"] >= cutoff)
-            ].sort_values("snapshot_date", ascending=False)
+                & (history_pool["trade_date"] < as_of_ts)
+                & (history_pool["trade_date"] >= cutoff)
+            ].sort_values("trade_date", ascending=False)
             if prior_limits.empty:
                 continue
 
             for _, prior_limit in prior_limits.iterrows():
-                prior_date = prior_limit["snapshot_date"]
+                prior_date = prior_limit["trade_date"]
                 if pd.isna(prior_date):
                     continue
                 if int((as_of_ts - prior_date).days) < min_gap_days:
