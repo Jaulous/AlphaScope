@@ -355,6 +355,21 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
+function LoadingState() {
+  return (
+    <Card className="border-white/10 bg-black/20 shadow-none">
+      <CardContent className="space-y-3 p-5">
+        <div className="text-sm font-medium text-zinc-200">
+          正在加载最新指标快照
+        </div>
+        <div className="text-sm text-zinc-400">
+          页面会在拿到最新持久化快照后再渲染指标、题材和个股面板。
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DashboardShell() {
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -426,6 +441,17 @@ export function DashboardShell() {
   );
   const warnings = snapshot?.warnings ?? [];
   const latestRun = snapshot?.latest_run ?? null;
+  const hasSnapshot = snapshot !== null;
+  const showInitialLoading = isLoading && !hasSnapshot;
+  const showNoData =
+    !isLoading &&
+    !error &&
+    hasSnapshot &&
+    indicators.length === 0 &&
+    themes.length === 0 &&
+    trackedStocks.length === 0;
+  const showMetricSections = hasSnapshot && !showInitialLoading;
+  const showUnavailableState = !hasSnapshot && !showInitialLoading && Boolean(error);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(21,48,74,0.22),transparent_38%),linear-gradient(180deg,#07111b_0%,#04070d_100%)] text-foreground">
@@ -450,7 +476,7 @@ export function DashboardShell() {
                 <CardHeader className="pb-3">
                   <CardDescription>Indicators</CardDescription>
                   <CardTitle className="text-3xl text-white">
-                    {indicators.length || "--"}
+                    {showInitialLoading ? "..." : indicators.length || "--"}
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -458,7 +484,9 @@ export function DashboardShell() {
                 <CardHeader className="pb-3">
                   <CardDescription>Themes</CardDescription>
                   <CardTitle className="text-3xl text-white">
-                    {snapshot?.active_themes.length || "--"}
+                    {showInitialLoading
+                      ? "..."
+                      : snapshot?.active_themes.length || "--"}
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -466,7 +494,9 @@ export function DashboardShell() {
                 <CardHeader className="pb-3">
                   <CardDescription>Tracked Stocks</CardDescription>
                   <CardTitle className="text-3xl text-white">
-                    {snapshot?.tracked_stocks.length || "--"}
+                    {showInitialLoading
+                      ? "..."
+                      : snapshot?.tracked_stocks.length || "--"}
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -474,7 +504,7 @@ export function DashboardShell() {
                 <CardHeader className="pb-3">
                   <CardDescription>As Of</CardDescription>
                   <CardTitle className="text-xl text-zinc-100">
-                    {snapshot?.as_of ?? "--"}
+                    {showInitialLoading ? "Loading..." : snapshot?.as_of ?? "--"}
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -493,10 +523,13 @@ export function DashboardShell() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Card className="border-white/10 bg-white/5 shadow-none">
-              <CardContent className="px-4 py-3 text-sm text-zinc-300">
-                最近刷新: {formatTimestamp(snapshot?.generated_at)}
-              </CardContent>
-            </Card>
+                <CardContent className="px-4 py-3 text-sm text-zinc-300">
+                  最近刷新:{" "}
+                  {showInitialLoading
+                    ? "Loading..."
+                    : formatTimestamp(snapshot?.generated_at)}
+                </CardContent>
+              </Card>
             {latestRun ? (
               <Card className="border-white/10 bg-white/5 shadow-none">
                 <CardContent className="px-4 py-3 text-sm text-zinc-300">
@@ -544,8 +577,38 @@ export function DashboardShell() {
           </Card>
         ) : null}
 
-        {isLoading ? <EmptyState label="Loading indicator surface..." /> : null}
+        {showInitialLoading ? <LoadingState /> : null}
 
+        {showNoData ? (
+          <Card className="border-amber-400/20 bg-amber-400/10 shadow-none">
+            <CardContent className="space-y-2 p-5">
+              <div className="text-sm font-medium text-amber-100">
+                当前没有可展示的最新快照
+              </div>
+              <div className="text-sm text-amber-100/80">
+                后端已返回响应，但最新持久化快照里没有指标、题材或跟踪股票。先检查抓数任务和
+                Supabase 中最近一个交易日的数据完整性。
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {showUnavailableState ? (
+          <Card className="border-white/10 bg-white/5 shadow-none">
+            <CardContent className="space-y-2 p-5">
+              <div className="text-sm font-medium text-zinc-100">
+                当前无法取得最新快照
+              </div>
+              <div className="text-sm text-zinc-400">
+                页面没有收到任何可回退的持久化数据，因此不会继续渲染空指标面板。
+                先检查后端 `/api/dashboard/latest`、最近一次抓数任务，以及 Supabase
+                中最新交易日是否已有 serving snapshot。
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {showMetricSections ? (
         <section className="space-y-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
@@ -555,7 +618,7 @@ export function DashboardShell() {
               核心日度指标与历史追踪
             </h2>
           </div>
-          {primaryIndicators.length > 0 ? (
+          {showInitialLoading ? null : primaryIndicators.length > 0 ? (
             <div className="grid gap-5 lg:grid-cols-2">
               {primaryIndicators.map((indicator) => (
                 <IndicatorCard
@@ -569,7 +632,9 @@ export function DashboardShell() {
             <EmptyState label="No primary indicators available for the latest snapshot." />
           )}
         </section>
+        ) : null}
 
+        {showMetricSections ? (
         <section className="space-y-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
@@ -577,7 +642,7 @@ export function DashboardShell() {
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">扩展指标</h2>
           </div>
-          {secondaryIndicators.length > 0 ? (
+          {showInitialLoading ? null : secondaryIndicators.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {secondaryIndicators.map((indicator) => (
                 <IndicatorCard key={indicator.key} indicator={indicator} />
@@ -587,7 +652,9 @@ export function DashboardShell() {
             <EmptyState label="No additional indicators available for the latest snapshot." />
           )}
         </section>
+        ) : null}
 
+        {showMetricSections ? (
         <section className="space-y-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
@@ -597,7 +664,7 @@ export function DashboardShell() {
               题材热度连续跟踪
             </h2>
           </div>
-          {themes.length > 0 ? (
+          {showInitialLoading ? null : themes.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {themes.map((theme) => (
                 <ThemeCard key={theme.theme_name} theme={theme} />
@@ -607,7 +674,9 @@ export function DashboardShell() {
             <EmptyState label="No active theme history is available for the latest snapshot." />
           )}
         </section>
+        ) : null}
 
+        {showMetricSections ? (
         <section className="space-y-4">
           <div>
             <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
@@ -617,7 +686,7 @@ export function DashboardShell() {
               跟踪股票 K 线与强弱变化
             </h2>
           </div>
-          {trackedStocks.length > 0 ? (
+          {showInitialLoading ? null : trackedStocks.length > 0 ? (
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
               {trackedStocks.map((stock) => (
                 <StockCard key={stock.symbol} stock={stock} />
@@ -627,6 +696,7 @@ export function DashboardShell() {
             <EmptyState label="No tracked stock history is available for the latest snapshot." />
           )}
         </section>
+        ) : null}
       </div>
     </main>
   );

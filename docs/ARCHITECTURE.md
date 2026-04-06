@@ -42,7 +42,8 @@ Explain how the system is structured and why.
 7. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
 8. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
 9. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
-10. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot. If it is stale or empty, it triggers an on-demand fetch before serving stored data.
+10. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
+11. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
 11. Next.js renders the dashboard from the API response and does not compute market state on the client.
 
 ## Quality Attributes

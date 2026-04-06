@@ -16,6 +16,7 @@ export async function GET() {
     const response = await fetch(upstreamUrl, {
       headers,
       cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
     });
 
     const body = await response.text();
@@ -35,7 +36,7 @@ export async function GET() {
 
     return Response.json(
       { detail: `Failed to reach dashboard backend: ${detail}` },
-      { status: 502 },
+      { status: 504 },
     );
   }
 }

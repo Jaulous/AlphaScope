@@ -10,7 +10,9 @@ sys.modules.setdefault(
     SimpleNamespace(Client=object, create_client=lambda *_args, **_kwargs: None),
 )
 sys.modules.setdefault("akshare", SimpleNamespace())
-if "pytz" not in sys.modules:
+try:
+    import pytz  # noqa: F401
+except ModuleNotFoundError:
     pytz_stub = ModuleType("pytz")
     pytz_stub.__version__ = "2024.2"
     pytz_stub.timezone = lambda name: ZoneInfo(name)
@@ -37,8 +39,17 @@ class FakeQuery:
         self._rows = [row for row in self._rows if row.get(key) >= value]
         return self
 
+    def lt(self, key, value):
+        self._rows = [row for row in self._rows if row.get(key) < value]
+        return self
+
     def eq(self, key, value):
         self._rows = [row for row in self._rows if row.get(key) == value]
+        return self
+
+    def in_(self, key, values):
+        allowed = set(values)
+        self._rows = [row for row in self._rows if row.get(key) in allowed]
         return self
 
     def order(self, key, desc=False):
@@ -47,6 +58,10 @@ class FakeQuery:
             key=lambda row: row.get(key) or "",
             reverse=desc,
         )
+        return self
+
+    def limit(self, count):
+        self._rows = self._rows[:count]
         return self
 
     def execute(self):

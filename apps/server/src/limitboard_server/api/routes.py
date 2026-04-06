@@ -56,24 +56,24 @@ def dashboard_latest(lookback_days: int = 60) -> dict:
     store = require_store()
     snapshot: dict | None = None
     warnings: list[str] = []
-    provider = AkShareProvider(timezone=settings.scheduler_timezone)
-    latest_market_date = provider.latest_market_date().isoformat()
 
     try:
         snapshot = store.fetch_dashboard_snapshot(lookback_days=lookback_days)
-    except Exception:
+    except Exception as exc:
+        warnings.append(f"Failed to read persisted dashboard snapshot: {exc}")
         snapshot = None
 
-    needs_refresh = (
-        snapshot is None
-        or snapshot.get("as_of") != latest_market_date
-        or (
-            not snapshot.get("indicators")
-            and not snapshot.get("active_themes")
-            and not snapshot.get("tracked_stocks")
+    has_persisted_snapshot = bool(snapshot and snapshot.get("as_of"))
+    has_content = bool(
+        snapshot
+        and (
+            snapshot.get("indicators")
+            or snapshot.get("active_themes")
+            or snapshot.get("tracked_stocks")
         )
     )
-    if needs_refresh:
+
+    if not has_persisted_snapshot or not has_content:
         try:
             fetch_result = run_daily_fetch(trigger="on_demand")
             warnings.extend(fetch_result.get("warnings", []))

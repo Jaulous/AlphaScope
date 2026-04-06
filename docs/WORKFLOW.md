@@ -81,6 +81,7 @@ Startup behavior:
 - Run `pnpm test`.
 - Run `pnpm build` before shipping cross-package changes.
 - When changing ingestion, universes, indicators, or persistence, validate `GET /api/health` and `GET /api/dashboard/latest` against a configured Supabase environment.
+- When changing dashboard loading or API proxy behavior, verify both the happy path and a slow-upstream path so the UI does not show empty-state content while requests are still pending.
 - Update `docs/*.md` in the same change when workflow, runtime contracts, or architecture changes.
 
 ## Release Process

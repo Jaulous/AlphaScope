@@ -12,7 +12,9 @@ sys.modules.setdefault(
     SimpleNamespace(Client=object, create_client=lambda *_args, **_kwargs: None),
 )
 sys.modules.setdefault("akshare", SimpleNamespace())
-if "pytz" not in sys.modules:
+try:
+    import pytz  # noqa: F401
+except ModuleNotFoundError:
     pytz_stub = ModuleType("pytz")
     pytz_stub.__version__ = "2024.2"
     pytz_stub.timezone = lambda name: ZoneInfo(name)
@@ -94,6 +96,83 @@ from limitboard_server.api import routes
 
 
 class VercelCronBehaviorTests(unittest.TestCase):
+    def test_dashboard_latest_returns_stored_snapshot_without_on_demand_fetch(self) -> None:
+        fake_store = SimpleNamespace(
+            fetch_dashboard_snapshot=lambda lookback_days=60: {
+                "as_of": "2026-03-27",
+                "indicators": [{"key": "up_limit_count"}],
+                "active_themes": [],
+                "tracked_stocks": [],
+            },
+            fetch_latest_fetch_run=lambda: None,
+        )
+        fake_settings = SimpleNamespace(
+            supabase_enabled=True,
+            supabase_url="https://example.supabase.co",
+            supabase_server_key="service-key",
+            scheduler_timezone="Asia/Shanghai",
+            cron_secret="expected-secret",
+            admin_api_key="",
+            scheduler_enabled=False,
+            is_vercel=True,
+        )
+
+        with (
+            patch("limitboard_server.api.routes.settings", fake_settings),
+            patch("limitboard_server.api.routes.require_store", return_value=fake_store),
+            patch("limitboard_server.api.routes.run_daily_fetch") as run_fetch,
+        ):
+            payload = routes.dashboard_latest()
+
+        self.assertEqual(payload["as_of"], "2026-03-27")
+        self.assertEqual(payload["source"], "stored")
+        run_fetch.assert_not_called()
+
+    def test_dashboard_latest_fetches_on_demand_when_no_snapshot_exists(self) -> None:
+        snapshot_sequence = iter(
+            [
+                {
+                    "as_of": None,
+                    "indicators": [],
+                    "active_themes": [],
+                    "tracked_stocks": [],
+                },
+                {
+                    "as_of": "2026-03-27",
+                    "indicators": [{"key": "up_limit_count"}],
+                    "active_themes": [],
+                    "tracked_stocks": [],
+                },
+            ]
+        )
+        fake_store = SimpleNamespace(
+            fetch_dashboard_snapshot=lambda lookback_days=60: next(snapshot_sequence),
+            fetch_latest_fetch_run=lambda: None,
+        )
+        fake_settings = SimpleNamespace(
+            supabase_enabled=True,
+            supabase_url="https://example.supabase.co",
+            supabase_server_key="service-key",
+            scheduler_timezone="Asia/Shanghai",
+            cron_secret="expected-secret",
+            admin_api_key="",
+            scheduler_enabled=False,
+            is_vercel=True,
+        )
+
+        with (
+            patch("limitboard_server.api.routes.settings", fake_settings),
+            patch("limitboard_server.api.routes.require_store", return_value=fake_store),
+            patch(
+                "limitboard_server.api.routes.run_daily_fetch",
+                return_value={"status": "success", "warnings": []},
+            ) as run_fetch,
+        ):
+            payload = routes.dashboard_latest()
+
+        self.assertEqual(payload["as_of"], "2026-03-27")
+        run_fetch.assert_called_once_with(trigger="on_demand")
+
     def test_cron_fetch_requires_secret(self) -> None:
         fake_settings = SimpleNamespace(
             supabase_enabled=True,

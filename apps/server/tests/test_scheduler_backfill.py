@@ -12,7 +12,9 @@ sys.modules.setdefault(
     SimpleNamespace(Client=object, create_client=lambda *_args, **_kwargs: None),
 )
 sys.modules.setdefault("akshare", SimpleNamespace())
-if "pytz" not in sys.modules:
+try:
+    import pytz  # noqa: F401
+except ModuleNotFoundError:
     pytz_stub = ModuleType("pytz")
     pytz_stub.__version__ = "2024.2"
     pytz_stub.timezone = lambda name: ZoneInfo(name)

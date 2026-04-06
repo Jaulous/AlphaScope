@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from quant_core.types import IndicatorDefinition
@@ -569,43 +570,99 @@ class SupabaseStore:
         return response.data or []
 
     def fetch_dashboard_snapshot(self, lookback_days: int = 60) -> dict[str, Any]:
-        indicator_rows = (
+        as_of_raw = self.latest_snapshot_date()
+        if not as_of_raw:
+            return {
+                "as_of": None,
+                "market_breadth": None,
+                "indicators": [],
+                "active_themes": [],
+                "tracked_stocks": [],
+            }
+
+        as_of = date.fromisoformat(as_of_raw)
+        since = (as_of - timedelta(days=lookback_days)).isoformat()
+        stock_since = self._market_day_start(as_of - timedelta(days=lookback_days))
+        stock_day_start = self._market_day_start(as_of)
+        stock_next_day_start = self._market_day_start(as_of + timedelta(days=1))
+
+        latest_indicator_rows = (
             self.client.table("daily_indicators")
             .select(
                 "key,indicator_date,title,type,value_numeric,value_text,delta,unit,raw_data"
             )
-            .gte(
-                "indicator_date",
-                (date.today() - timedelta(days=lookback_days)).isoformat(),
-            )
-            .order("indicator_date", desc=False)
+            .eq("indicator_date", as_of.isoformat())
+            .order("key", desc=False)
             .execute()
             .data
             or []
         )
-        stock_rows = (
+        indicator_keys = [row["key"] for row in latest_indicator_rows]
+        indicator_rows = []
+        if indicator_keys:
+            indicator_rows = (
+                self.client.table("daily_indicators")
+                .select(
+                    "key,indicator_date,title,type,value_numeric,value_text,delta,unit,raw_data"
+                )
+                .in_("key", indicator_keys)
+                .gte("indicator_date", since)
+                .order("indicator_date", desc=False)
+                .execute()
+                .data
+                or []
+            )
+
+        latest_theme_rows = (
+            self.client.table("daily_themes_volume")
+            .select("indicator_date,theme_name,turnover,rank,metadata")
+            .eq("indicator_date", as_of.isoformat())
+            .order("rank", desc=False)
+            .execute()
+            .data
+            or []
+        )
+        theme_names = [row["theme_name"] for row in latest_theme_rows]
+        theme_rows = []
+        if theme_names:
+            theme_rows = (
+                self.client.table("daily_themes_volume")
+                .select("indicator_date,theme_name,turnover,rank,metadata")
+                .in_("theme_name", theme_names)
+                .gte("indicator_date", since)
+                .order("indicator_date", desc=False)
+                .execute()
+                .data
+                or []
+            )
+
+        latest_stock_rows = (
             self.client.table("stock_kline_daily")
             .select(
                 "ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change"
             )
-            .gte("ts", (date.today() - timedelta(days=lookback_days)).isoformat())
-            .order("ts", desc=False)
+            .gte("ts", stock_day_start)
+            .lt("ts", stock_next_day_start)
+            .order("turnover", desc=True)
             .execute()
             .data
             or []
         )
-        theme_rows = (
-            self.client.table("daily_themes_volume")
-            .select("indicator_date,theme_name,turnover,rank,metadata")
-            .gte(
-                "indicator_date",
-                (date.today() - timedelta(days=lookback_days)).isoformat(),
+        stock_symbols = [row["symbol"] for row in latest_stock_rows]
+        stock_rows = []
+        if stock_symbols:
+            stock_rows = (
+                self.client.table("stock_kline_daily")
+                .select(
+                    "ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change"
+                )
+                .in_("symbol", stock_symbols)
+                .gte("ts", stock_since)
+                .order("ts", desc=False)
+                .execute()
+                .data
+                or []
             )
-            .order("indicator_date", desc=False)
-            .execute()
-            .data
-            or []
-        )
 
         latest_by_key: dict[str, dict[str, Any]] = {}
         history_by_key: dict[str, list[dict[str, Any]]] = {}
@@ -625,9 +682,7 @@ class SupabaseStore:
             latest_theme_meta[theme] = row
 
         indicators = []
-        latest_dates = []
         for key, row in latest_by_key.items():
-            latest_dates.append(row["indicator_date"])
             indicators.append(
                 {
                     **row,
@@ -684,12 +739,11 @@ class SupabaseStore:
         ]
 
         market_breadth = None
-        as_of = max(latest_dates) if latest_dates else None
-        if as_of:
+        if as_of_raw:
             raw_market_rows = (
                 self.client.table("raw_market_snapshot_daily")
                 .select("pct_change")
-                .eq("snapshot_date", as_of)
+                .eq("snapshot_date", as_of_raw)
                 .execute()
                 .data
                 or []
@@ -706,7 +760,7 @@ class SupabaseStore:
                 }
 
         return {
-            "as_of": as_of,
+            "as_of": as_of_raw,
             "market_breadth": market_breadth,
             "indicators": indicators,
             "active_themes": active_themes,
@@ -746,3 +800,8 @@ class SupabaseStore:
             except Exception:
                 return value
         return value
+
+    @staticmethod
+    def _market_day_start(value: date) -> str:
+        market_tz = ZoneInfo("Asia/Shanghai")
+        return datetime.combine(value, time.min, tzinfo=market_tz).isoformat()
