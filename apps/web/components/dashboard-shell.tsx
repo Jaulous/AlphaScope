@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+} from "lucide-react";
 
 import type {
   DashboardIndicator,
@@ -74,6 +83,14 @@ function formatSignedPercent(value?: number | null) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function formatCompactSignedNumber(value?: number | null) {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  const formatted = formatCompactNumber(Math.abs(value));
+  return `${value >= 0 ? "+" : "-"}${formatted}`;
+}
+
 function formatTimestamp(value?: string | null) {
   if (!value) {
     return "--";
@@ -98,6 +115,49 @@ function getIndicatorStocks(indicator: DashboardIndicator): IndicatorStock[] {
   return rawData.stocks.filter((item): item is IndicatorStock => {
     return Boolean(item && typeof item === "object" && "symbol" in item);
   });
+}
+
+function getIndicatorCategory(indicator: DashboardIndicator) {
+  if (indicator.key.includes("turnover")) {
+    return "Turnover";
+  }
+  if (indicator.key.includes("ratio")) {
+    return "Ratio";
+  }
+  if (indicator.key.includes("board")) {
+    return "Board";
+  }
+  if (indicator.key.includes("count")) {
+    return "Breadth";
+  }
+  return "Signal";
+}
+
+function getIndicatorTrend(indicator: DashboardIndicator) {
+  const values = (indicator.history ?? [])
+    .map((item) => item.value)
+    .filter((value): value is number => value !== null && value !== undefined);
+
+  if (values.length < 2) {
+    return {
+      delta: null,
+      changePct: null,
+      direction: "flat" as const,
+      sampleSize: values.length,
+    };
+  }
+
+  const latest = values[values.length - 1];
+  const previous = values[values.length - 2];
+  const delta = latest - previous;
+  const changePct = previous === 0 ? null : (delta / Math.abs(previous)) * 100;
+
+  return {
+    delta,
+    changePct,
+    direction: delta > 0 ? ("up" as const) : delta < 0 ? ("down" as const) : ("flat" as const),
+    sampleSize: values.length,
+  };
 }
 
 function IndicatorStockTable({
@@ -169,62 +229,152 @@ function ServingMetricRow({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const stocks = useMemo(() => getIndicatorStocks(indicator), [indicator]);
+  const trend = useMemo(() => getIndicatorTrend(indicator), [indicator]);
+  const isPositive = trend.direction === "up";
+  const isNegative = trend.direction === "down";
+  const accentClass = isPositive
+    ? "text-emerald-300"
+    : isNegative
+      ? "text-rose-300"
+      : "text-zinc-300";
+  const panelAccent = isPositive
+    ? "border-emerald-400/14 bg-emerald-400/[0.04]"
+    : isNegative
+      ? "border-rose-400/14 bg-rose-400/[0.04]"
+      : "border-white/8 bg-white/[0.02]";
 
   return (
-    <Card className="overflow-hidden border-white/10 bg-[rgba(7,11,22,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-      <CardContent className="p-0">
-        <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="border-b border-white/8 p-6 xl:border-b-0 xl:border-r">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <CardDescription>{indicator.key}</CardDescription>
-                <CardTitle className="mt-2 text-[30px] leading-tight text-white">
-                  {indicator.title}
-                </CardTitle>
-              </div>
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
-                {indicator.indicator_date}
-              </div>
+    <div
+      data-serving-metric-row
+      className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)_170px]"
+    >
+      <div className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.92),rgba(6,10,18,0.88))] p-6 xl:border-b-0 xl:border-r">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400">
+                {getIndicatorCategory(indicator)}
+              </span>
+              <span className="rounded-full border border-white/8 bg-black/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                {indicator.key}
+              </span>
             </div>
-
-            <div className="mt-10">
+            <CardTitle className="mt-4 text-[32px] leading-[1.02] text-white">
+              {indicator.title}
+            </CardTitle>
+            <div className="mt-6 flex items-end gap-3">
               <div className="font-mono text-[52px] font-semibold leading-none text-white">
                 {formatIndicatorValue(indicator)}
               </div>
-              <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+              <div className="pb-1 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
                 {indicator.unit ?? "metric"}
               </div>
             </div>
 
-            {stocks.length > 0 ? (
-              <div className="mt-8">
-                <Button
-                  variant="default"
-                  onClick={() => setIsExpanded((value) => !value)}
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
+            <div className="mt-6 grid gap-2">
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className={`rounded-full border px-3 py-1 ${panelAccent}`}>
+                  {isPositive ? (
+                    <ArrowUpRight className="mr-1 inline h-3.5 w-3.5" />
+                  ) : isNegative ? (
+                    <ArrowDownRight className="mr-1 inline h-3.5 w-3.5" />
                   ) : (
-                    <ChevronDown className="h-4 w-4" />
+                    <Activity className="mr-1 inline h-3.5 w-3.5" />
                   )}
-                  查看当日股票 {stocks.length}
-                </Button>
+                  <span className={accentClass}>
+                    {trend.delta === null
+                      ? "History pending"
+                      : `${formatCompactSignedNumber(trend.delta)} / ${formatSignedPercent(trend.changePct)}`}
+                  </span>
+                </span>
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
+                  Samples {trend.sampleSize}
+                </span>
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
+                  Snapshot {indicator.indicator_date}
+                </span>
               </div>
-            ) : null}
+            </div>
           </div>
-
-          <div className="p-6">
-            <MetricTrendChart history={indicator.history ?? []} />
+          <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2 text-right">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+              Stored
+            </div>
+            <div className="mt-1 text-sm text-zinc-300">{indicator.indicator_date}</div>
           </div>
         </div>
 
-        {isExpanded ? (
-          <div className="border-t border-white/8 p-6">
-            <IndicatorStockTable indicatorKey={indicator.key} stocks={stocks} />
+        {stocks.length > 0 ? (
+          <div className="mt-8">
+            <Button
+              variant="ghost"
+              className="h-10 rounded-[14px] border border-white/8 bg-white/[0.03] px-3 text-zinc-200 hover:border-emerald-400/20 hover:bg-emerald-400/10"
+              onClick={() => setIsExpanded((value) => !value)}
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              关联股票 {stocks.length}
+            </Button>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(7,11,22,0.94),rgba(4,8,16,0.92))] p-6 xl:border-b-0 xl:border-r">
+        <MetricTrendChart history={indicator.history ?? []} />
+      </div>
+
+      <div className="bg-[linear-gradient(180deg,rgba(5,9,16,0.96),rgba(4,8,15,0.92))] p-5">
+        <div className="flex h-full flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Market Readout
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                  Latest Move
+                </div>
+                <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
+                  {trend.delta === null ? "--" : formatCompactSignedNumber(trend.delta)}
+                </div>
+              </div>
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                  Relative Change
+                </div>
+                <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
+                  {formatSignedPercent(trend.changePct)}
+                </div>
+              </div>
+              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                  Tracked Stocks
+                </div>
+                <div className="mt-2 text-xl font-semibold text-white">
+                  {stocks.length}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-[18px] border border-white/8 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
+            {trend.sampleSize > 1
+              ? "沿用终端式展示：左侧读数，中部图表，右侧状态面板。"
+              : "历史样本不足时，仅保留主读数与基础状态。"}
+          </div>
+        </div>
+      </div>
+
+      {isExpanded ? (
+        <div className="border-t border-white/8 bg-[rgba(5,9,16,0.9)] p-6 xl:col-span-3">
+          <IndicatorStockTable indicatorKey={indicator.key} stocks={stocks} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -233,16 +383,38 @@ function MonitorChip({
 }: {
   indicator: DashboardIndicator;
 }) {
+  const trend = getIndicatorTrend(indicator);
+  const isPositive = trend.direction === "up";
+  const isNegative = trend.direction === "down";
+
   return (
-    <div className="min-w-[140px] rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-        {indicator.title}
+    <div className="min-w-[160px] rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(13,19,31,0.95),rgba(9,14,24,0.92))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+          {indicator.title}
+        </div>
+        <div className="rounded-full border border-white/8 bg-white/[0.03] px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+          {getIndicatorCategory(indicator)}
+        </div>
       </div>
       <div className="mt-4 font-mono text-[34px] font-semibold leading-none text-white">
         {formatIndicatorValue(indicator)}
       </div>
-      <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-        {indicator.unit ?? indicator.key}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+          {indicator.unit ?? indicator.key}
+        </div>
+        <div
+          className={`text-xs font-medium ${
+            isPositive
+              ? "text-emerald-300"
+              : isNegative
+                ? "text-rose-300"
+                : "text-zinc-400"
+          }`}
+        >
+          {trend.delta === null ? "--" : formatCompactSignedNumber(trend.delta)}
+        </div>
       </div>
     </div>
   );
@@ -256,10 +428,15 @@ function MetricsList({ indicators }: { indicators: DashboardIndicator[] }) {
   }
 
   return (
-    <div className="space-y-4">
-        {indicators.map((indicator) => (
+    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(6,10,18,0.96),rgba(3,6,12,0.96))] shadow-[0_30px_100px_rgba(0,0,0,0.28)]">
+      {indicators.map((indicator, index) => (
+        <div
+          key={indicator.key}
+          className={index === 0 ? "" : "border-t border-white/8"}
+        >
           <ServingMetricRow key={indicator.key} indicator={indicator} />
-        ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -608,20 +785,31 @@ export function DashboardShell() {
 
         {showMetricSections ? (
         <section className="space-y-4 rounded-[30px] border border-emerald-400/14 bg-[linear-gradient(180deg,rgba(7,11,22,0.76),rgba(4,8,15,0.58))] px-5 py-5 shadow-[0_30px_90px_rgba(0,0,0,0.24)]">
-          <div>
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(9,15,25,0.9),rgba(5,9,16,0.85))] p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
                   Serving Metrics
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Serving 层指标列表
+                  Serving 层指标终端
                 </h2>
+                <p className="mt-3 max-w-3xl text-sm text-zinc-400">
+                  参考 TradingView 的终端图表语言和 Polymarket 的市场列表结构，当前指标区改成连续面板。
+                  每个指标保持单行，但信息密度、状态展示和图表控制更接近真实行情产品。
+                </p>
               </div>
-              <p className="text-sm text-zinc-400">
-                每个指标独占一行，右侧折线支持放大、缩小和重置。后续新增 serving
-                层指标时，继续按相同的纵向行结构向下追加。
-              </p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-zinc-300">
+                  Stored Snapshot · {snapshot?.as_of ?? "--"}
+                </div>
+                <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-zinc-300">
+                  Indicators · {indicators.length}
+                </div>
+                <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-zinc-300">
+                  Layout · Market Terminal
+                </div>
+              </div>
             </div>
           </div>
           <MetricsList indicators={indicators} />

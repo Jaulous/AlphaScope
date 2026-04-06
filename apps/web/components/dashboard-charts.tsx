@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { Minus, Plus, RotateCcw } from "lucide-react";
 
 import { Button, ChartContainer, cn } from "@limitboard/ui";
 
@@ -98,7 +99,7 @@ export function MetricTrendChart({
 
   if (points.length === 0) {
     return (
-      <div className="flex h-[210px] items-center justify-center rounded-[22px] border border-white/8 bg-black/20 text-sm text-zinc-500">
+      <div className="flex h-[250px] items-center justify-center rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.96),rgba(4,8,16,0.9))] text-sm text-zinc-500">
         暂无可展示的历史序列
       </div>
     );
@@ -110,13 +111,19 @@ export function MetricTrendChart({
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-          Daily Tracking
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+            Daily Tracking
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">
+            可滚轮缩放，底部滑块可拖动观察更长历史。
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
+            className="h-8 rounded-[12px] border border-white/8 bg-white/[0.03] px-2.5 text-zinc-300 hover:border-emerald-400/20 hover:bg-emerald-400/10 hover:text-emerald-200"
             onClick={() =>
               setVisiblePoints((current) =>
                 Math.max(6, Math.floor(current * 0.72)),
@@ -124,11 +131,13 @@ export function MetricTrendChart({
             }
             disabled={!canZoomIn}
           >
+            <Plus className="h-3.5 w-3.5" />
             放大
           </Button>
           <Button
             variant="ghost"
             size="sm"
+            className="h-8 rounded-[12px] border border-white/8 bg-white/[0.03] px-2.5 text-zinc-300 hover:border-emerald-400/20 hover:bg-emerald-400/10 hover:text-emerald-200"
             onClick={() =>
               setVisiblePoints((current) =>
                 Math.min(points.length, Math.ceil(current * 1.35)),
@@ -136,29 +145,33 @@ export function MetricTrendChart({
             }
             disabled={!canZoomOut}
           >
+            <Minus className="h-3.5 w-3.5" />
             缩小
           </Button>
           <Button
             variant="ghost"
             size="sm"
+            className="h-8 rounded-[12px] border border-white/8 bg-white/[0.03] px-2.5 text-zinc-300 hover:border-emerald-400/20 hover:bg-emerald-400/10 hover:text-emerald-200"
             onClick={() => setVisiblePoints(defaultVisiblePoints)}
             disabled={visiblePoints === defaultVisiblePoints}
           >
+            <RotateCcw className="h-3.5 w-3.5" />
             重置
           </Button>
         </div>
       </div>
-      <ChartContainer className="h-[210px] rounded-[22px] border border-white/8 bg-black/20 p-0">
+      <ChartContainer className="h-[250px] rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.96),rgba(4,8,16,0.9))] p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
         <ReactECharts
           style={{ height: "100%", width: "100%" }}
           option={{
             animation: false,
-            grid: { left: 18, right: 18, top: 18, bottom: 46 },
+            grid: { left: 18, right: 18, top: 18, bottom: 48 },
             tooltip: { trigger: "axis" },
             xAxis: {
               type: "category",
               boundaryGap: false,
-              axisLine: { lineStyle: { color: "rgba(255,255,255,0.12)" } },
+              axisLine: { lineStyle: { color: "rgba(255,255,255,0.08)" } },
+              axisTick: { show: false },
               axisLabel: { color: "#71717a", fontSize: 11 },
               data: points.map((item) => item.date),
             },
@@ -167,7 +180,7 @@ export function MetricTrendChart({
               scale: true,
               axisLine: { show: false },
               axisTick: { show: false },
-              splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
+              splitLine: { lineStyle: { color: "rgba(255,255,255,0.045)" } },
               axisLabel: { color: "#71717a", fontSize: 11 },
             },
             dataZoom: [
@@ -185,8 +198,8 @@ export function MetricTrendChart({
                 height: 18,
                 bottom: 10,
                 borderColor: "rgba(255,255,255,0.08)",
-                fillerColor: "rgba(34,197,94,0.14)",
-                backgroundColor: "rgba(255,255,255,0.04)",
+                fillerColor: "rgba(34,197,94,0.12)",
+                backgroundColor: "rgba(255,255,255,0.03)",
                 dataBackground: {
                   lineStyle: { color: "rgba(255,255,255,0.12)" },
                   areaStyle: { color: "rgba(255,255,255,0.04)" },
@@ -201,8 +214,8 @@ export function MetricTrendChart({
                 smooth: true,
                 symbol: "none",
                 connectNulls: false,
-                lineStyle: { color: "#59d471", width: 2.5 },
-                areaStyle: { color: "rgba(89, 212, 113, 0.08)" },
+                lineStyle: { color: "#59d471", width: 2.2 },
+                areaStyle: { color: "rgba(89, 212, 113, 0.06)" },
               },
             ],
           }}

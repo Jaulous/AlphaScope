@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T19:53:03+08:00
+- Redesigned the serving metrics experience toward a market-terminal style using TradingView's chart-and-panel density and Polymarket's market-row structure as visual references.
+- Reworked the core indicator rows into a continuous terminal panel with richer metadata, state readouts, and a dedicated right-side market-readout column instead of plain stacked cards.
+- Upgraded the per-indicator chart controls and top monitor chips so the full dashboard reads like a trading surface rather than a generic BI board.
+
 ### 2026-04-06T19:35:49+08:00
 - Corrected the serving-metrics homepage layout from a horizontal rail to a stacked one-row-per-indicator list while preserving the existing dark dashboard visual language.
 - Added per-indicator trend panels with explicit zoom-in, zoom-out, reset controls, plus an ECharts slider for detailed history inspection.
