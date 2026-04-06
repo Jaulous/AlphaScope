@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T21:00:40+08:00
+- Extended the Raw V2 transition beyond canonical fact dual-write by adding landing/audit writes for fetched daily datasets.
+- Market snapshot, limit-up pool, and concept-board fetches now record `raw_ingestion_runs`, `raw_dataset_batches`, and `raw_source_payload_rows` alongside their normalized raw tables.
+- Kept the migration safe: Raw V1 remains the runtime read path for indicator computation, while landing/audit persistence failures only emit warnings and do not block serving generation.
+
 ### 2026-04-06T20:55:23+08:00
 - Started the Raw V2 runtime refactor by extending the daily fetch pipeline to dual-write core canonical raw tables while preserving the existing Raw V1 and serving path.
 - Added best-effort runtime writes for `raw_trade_calendar`, `raw_security_master`, `raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, and `raw_concept_board_daily` so the new raw architecture begins accumulating usable data immediately.

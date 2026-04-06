@@ -3,17 +3,19 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from time import sleep
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytz
 from quant_core import QuantEngine, TrackingConfig
+from quant_core.ingestion import FetchArtifact
 from quant_core.types import IndicatorContext, IndicatorDefinition
 
 from limitboard_server.config import settings
 from limitboard_server.db.supabase_store import SupabaseStore
 from limitboard_server.defaults import DEFAULT_INDICATOR_DEFINITIONS
 
-SourceFetcher = Callable[[], pd.DataFrame]
+SourceFetcher = Callable[[], FetchArtifact]
 RawReader = Callable[[], pd.DataFrame]
 
 _FETCH_RETRY_DELAYS = (1.0, 3.0, 8.0)
@@ -109,10 +111,13 @@ def run_daily_fetch(
         "raw_v2_board_daily_count": 0,
     }
 
-    market_snapshot, market_fetched = _fetch_source_with_reuse(
+    market_snapshot, market_fetched, market_artifact = _fetch_source_with_reuse(
         name="market_snapshot",
-        fetcher=engine.provider.fetch_market_snapshot,
+        fetcher=engine.provider.fetch_market_snapshot_artifact,
         read_existing=lambda: store.fetch_raw_market_snapshot(as_of),
+        store=store,
+        trigger=trigger,
+        as_of=as_of,
         source_statuses=source_statuses,
         warnings=warnings,
     )
@@ -122,10 +127,13 @@ def run_daily_fetch(
         )
     raw_market_snapshot = store.fetch_raw_market_snapshot(as_of)
 
-    limit_up_pool, limit_up_fetched = _fetch_source_with_reuse(
+    limit_up_pool, limit_up_fetched, limit_up_artifact = _fetch_source_with_reuse(
         name="limit_up_pool",
-        fetcher=lambda: engine.provider.fetch_limit_up_pool(as_of),
+        fetcher=lambda: engine.provider.fetch_limit_up_pool_artifact(as_of),
         read_existing=lambda: store.fetch_raw_limit_up_pool(as_of),
+        store=store,
+        trigger=trigger,
+        as_of=as_of,
         source_statuses=source_statuses,
         warnings=warnings,
     )
@@ -135,10 +143,13 @@ def run_daily_fetch(
         )
     raw_limit_up_pool = store.fetch_raw_limit_up_pool(as_of)
 
-    concept_boards, concept_fetched = _fetch_source_with_reuse(
+    concept_boards, concept_fetched, concept_artifact = _fetch_source_with_reuse(
         name="concept_boards",
-        fetcher=engine.provider.fetch_concept_board_snapshot,
+        fetcher=engine.provider.fetch_concept_board_snapshot_artifact,
         read_existing=lambda: store.fetch_raw_concept_boards(as_of),
+        store=store,
+        trigger=trigger,
+        as_of=as_of,
         source_statuses=source_statuses,
         warnings=warnings,
     )
@@ -422,19 +433,35 @@ def _fetch_source_with_reuse(
     name: str,
     fetcher: SourceFetcher,
     read_existing: RawReader,
+    store: SupabaseStore,
+    trigger: str,
+    as_of: date,
     source_statuses: dict[str, Any],
     warnings: list[str],
-) -> tuple[pd.DataFrame, bool]:
+) -> tuple[pd.DataFrame, bool, FetchArtifact | None]:
     errors: list[str] = []
     for attempt, delay in enumerate(_FETCH_RETRY_DELAYS, start=1):
+        started_at = datetime.now(tz=ZoneInfo("UTC"))
         try:
-            df = fetcher()
+            artifact = fetcher()
+            df = artifact.data
             source_statuses[name] = {
                 "status": "fetched",
                 "attempts": attempt,
                 "row_count": int(len(df.index)),
             }
-            return df, True
+            _record_landing_batch(
+                store=store,
+                trigger=trigger,
+                dataset_key=name,
+                as_of=as_of,
+                artifact=artifact,
+                started_at=started_at,
+                finished_at=datetime.now(tz=ZoneInfo("UTC")),
+                source_statuses=source_statuses,
+                warnings=warnings,
+            )
+            return df, True, artifact
         except Exception as exc:
             errors.append(f"attempt {attempt}: {exc}")
             if attempt < len(_FETCH_RETRY_DELAYS):
@@ -451,7 +478,7 @@ def _fetch_source_with_reuse(
             "row_count": int(len(existing.index)),
             "errors": errors,
         }
-        return existing, False
+        return existing, False, None
 
     warnings.append(
         f"{name} fetch failed after retries and no stored raw data was available."
@@ -462,7 +489,56 @@ def _fetch_source_with_reuse(
         "row_count": 0,
         "errors": errors,
     }
-    return existing, False
+    return existing, False, None
+
+
+def _record_landing_batch(
+    *,
+    store: SupabaseStore,
+    trigger: str,
+    dataset_key: str,
+    as_of: date,
+    artifact: FetchArtifact,
+    started_at: datetime,
+    finished_at: datetime,
+    source_statuses: dict[str, Any],
+    warnings: list[str],
+) -> None:
+    try:
+        run_id = store.create_raw_ingestion_run(
+            trigger=trigger,
+            dataset_key=dataset_key,
+            source_name=artifact.source_name,
+            status="fetched",
+            as_of_date=as_of,
+            request_params=artifact.fetch_params,
+            row_count=len(artifact.raw_records),
+            started_at=started_at,
+            finished_at=finished_at,
+            metadata=artifact.metadata,
+        )
+        batch_id = store.create_raw_dataset_batch(
+            run_id=run_id,
+            dataset_key=dataset_key,
+            source_name=artifact.source_name,
+            source_endpoint=artifact.source_endpoint,
+            as_of_date=as_of,
+            snapshot_time=finished_at,
+            fetch_params=artifact.fetch_params,
+            rows=artifact.raw_records,
+            metadata=artifact.metadata,
+        )
+        inserted_rows = store.insert_raw_source_payload_rows(
+            batch_id, artifact.raw_records
+        )
+        source_statuses.setdefault(dataset_key, {})["audit_status"] = "persisted"
+        source_statuses[dataset_key]["audit_row_count"] = inserted_rows
+    except Exception as exc:
+        source_statuses.setdefault(dataset_key, {})["audit_status"] = "write_failed"
+        source_statuses[dataset_key]["audit_error"] = str(exc)
+        warnings.append(
+            f"{dataset_key} landing/audit persistence failed; canonical raw and serving writes continued."
+        )
 
 
 def _persist_raw_v2_extensions(

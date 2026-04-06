@@ -36,6 +36,10 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
+- Phase 1 ingestion now also writes landing/audit records for fetched daily datasets:
+  - `raw_ingestion_runs`
+  - `raw_dataset_batches`
+  - `raw_source_payload_rows`
 - Raw V2 adds:
   - landing/audit tables for original AkShare payload preservation
   - canonical domain-grain raw fact tables designed to support a future indicator library of roughly `100+` metrics

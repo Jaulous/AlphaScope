@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -323,6 +325,117 @@ class SupabaseStore:
                 }
             )
         ).execute()
+
+    def create_raw_ingestion_run(
+        self,
+        *,
+        trigger: str,
+        dataset_key: str,
+        source_name: str,
+        status: str,
+        market: str = "CN_A",
+        as_of_date: date | None = None,
+        request_params: dict[str, Any] | None = None,
+        row_count: int | None = None,
+        error_message: str | None = None,
+        started_at: datetime | None = None,
+        finished_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int | None:
+        payload = self._sanitize_row(
+            {
+                "trigger": trigger,
+                "dataset_key": dataset_key,
+                "source_name": source_name,
+                "market": market,
+                "as_of_date": as_of_date.isoformat() if as_of_date else None,
+                "request_params": request_params or {},
+                "status": status,
+                "row_count": row_count,
+                "error_message": error_message,
+                "started_at": started_at.isoformat() if started_at else None,
+                "finished_at": finished_at.isoformat() if finished_at else None,
+                "metadata": metadata or {},
+            }
+        )
+        response = self.client.table("raw_ingestion_runs").insert(payload).execute()
+        rows = response.data or []
+        if not rows:
+            return None
+        raw_id = rows[0].get("id")
+        return int(raw_id) if raw_id is not None else None
+
+    def create_raw_dataset_batch(
+        self,
+        *,
+        run_id: int | None,
+        dataset_key: str,
+        source_name: str,
+        source_endpoint: str | None = None,
+        market: str = "CN_A",
+        as_of_date: date | None = None,
+        snapshot_time: datetime | None = None,
+        fetch_params: dict[str, Any] | None = None,
+        rows: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int | None:
+        sanitized_rows = self._sanitize_rows(rows or [])
+        payload_hash = hashlib.sha256(
+            json.dumps(
+                sanitized_rows,
+                ensure_ascii=False,
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()
+        payload = self._sanitize_row(
+            {
+                "run_id": run_id,
+                "dataset_key": dataset_key,
+                "source_name": source_name,
+                "source_endpoint": source_endpoint,
+                "market": market,
+                "as_of_date": as_of_date.isoformat() if as_of_date else None,
+                "snapshot_time": snapshot_time.isoformat() if snapshot_time else None,
+                "fetch_params": fetch_params or {},
+                "column_names": sorted(
+                    {
+                        key
+                        for row in sanitized_rows
+                        for key in row.keys()
+                    }
+                ),
+                "record_count": len(sanitized_rows),
+                "payload_sha256": payload_hash,
+                "metadata": metadata or {},
+            }
+        )
+        response = self.client.table("raw_dataset_batches").insert(payload).execute()
+        rows = response.data or []
+        if not rows:
+            return None
+        raw_id = rows[0].get("id")
+        return int(raw_id) if raw_id is not None else None
+
+    def insert_raw_source_payload_rows(
+        self, batch_id: int | None, rows: list[dict[str, Any]]
+    ) -> int:
+        if batch_id is None or not rows:
+            return 0
+        payload = []
+        sanitized_rows = self._sanitize_rows(rows)
+        for index, row in enumerate(sanitized_rows, start=1):
+            natural_key = self._build_payload_natural_key(row)
+            payload.append(
+                {
+                    "batch_id": batch_id,
+                    "row_no": index,
+                    "natural_key": natural_key,
+                    "payload": row,
+                }
+            )
+        self.client.table("raw_source_payload_rows").insert(payload).execute()
+        return len(payload)
 
     def fetch_latest_fetch_run(self) -> dict[str, Any] | None:
         response = (
@@ -1061,6 +1174,30 @@ class SupabaseStore:
             except Exception:
                 return value
         return value
+
+    @classmethod
+    def _build_payload_natural_key(cls, row: dict[str, Any]) -> str | None:
+        preferred_keys = [
+            "symbol",
+            "代码",
+            "theme_name",
+            "板块名称",
+            "name",
+            "名称",
+            "date",
+            "日期",
+            "ts",
+            "trade_date",
+        ]
+        parts: list[str] = []
+        for key in preferred_keys:
+            value = row.get(key)
+            if value is None:
+                continue
+            parts.append(f"{key}={value}")
+        if not parts:
+            return None
+        return "|".join(parts)
 
     @staticmethod
     def _infer_exchange(symbol: str) -> str | None:

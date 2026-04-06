@@ -194,5 +194,9 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
-- Landing/audit tables and the remaining canonical tables are not yet populated by the runtime.
+- Phase 1 runtime now also writes landing/audit records for fetched daily datasets:
+  - `raw_ingestion_runs`
+  - `raw_dataset_batches`
+  - `raw_source_payload_rows`
+- The remaining canonical tables are not yet populated by the runtime.
 - Raw V2 is now the active schema direction, but not yet the sole runtime read path.

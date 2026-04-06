@@ -42,12 +42,13 @@ Explain how the system is structured and why.
 6. Current runtime persists into Raw V1 tables (`raw_market_snapshot_daily`, `raw_limit_up_pool_daily`, `raw_concept_boards_daily`, `raw_stock_kline_daily`).
 7. Raw V2 is the target shape: a landing/audit layer (`raw_ingestion_runs`, `raw_dataset_batches`, `raw_source_payload_rows`) plus canonical raw domain tables (`raw_trade_calendar`, `raw_security_master`, `raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, `raw_concept_board_daily`, `raw_concept_board_constituents_daily`, `raw_index_daily_quotes`).
 8. Phase 1 runtime now dual-writes part of Raw V2 alongside Raw V1: trade calendar, security master, equity daily quotes, daily limit events, and concept board daily facts are written best-effort without blocking serving generation.
-9. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
-10. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
-11. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
-12. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
-13. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
-14. Next.js renders the dashboard from the API response and does not compute market state on the client.
+9. For fetched daily datasets (`market_snapshot`, `limit_up_pool`, `concept_boards`), the runtime also writes Raw V2 landing/audit records into `raw_ingestion_runs`, `raw_dataset_batches`, and `raw_source_payload_rows`.
+10. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
+11. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
+12. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
+13. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
+14. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
+15. Next.js renders the dashboard from the API response and does not compute market state on the client.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.
@@ -63,4 +64,4 @@ Explain how the system is structured and why.
 - Legacy naming still exists in some package/module identifiers (`limitboard_*`), even though the canonical product is AlphaScope.
 - Stock K-line name normalization is still imperfect for some symbols because upstream raw data is inconsistent.
 - Multiprocessing in `quant-core` improves throughput for larger indicator sets but increases runtime complexity and requires module-safe entrypoints.
-- The current production runtime is only partially migrated: Raw V1 still feeds indicator computation, while Raw V2 writes are best-effort and not yet the canonical read path.
+- The current production runtime is only partially migrated: Raw V1 still feeds indicator computation, while Raw V2 landing and canonical writes are best-effort and not yet the canonical read path.

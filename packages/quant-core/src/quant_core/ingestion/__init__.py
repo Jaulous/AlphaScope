@@ -1,3 +1,3 @@
-from .akshare_provider import AkShareProvider
+from .akshare_provider import AkShareProvider, FetchArtifact
 
-__all__ = ["AkShareProvider"]
+__all__ = ["AkShareProvider", "FetchArtifact"]

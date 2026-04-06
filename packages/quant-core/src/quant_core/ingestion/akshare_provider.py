@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -8,6 +9,16 @@ import akshare as ak
 import pandas as pd
 import pytz
 import requests
+
+
+@dataclass(slots=True)
+class FetchArtifact:
+    data: pd.DataFrame
+    source_name: str
+    source_endpoint: str | None = None
+    fetch_params: dict[str, Any] = field(default_factory=dict)
+    raw_records: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AkShareProvider:
@@ -24,11 +35,20 @@ class AkShareProvider:
         self._trade_dates_cache: set[date] | None = None
 
     def fetch_market_snapshot(self) -> pd.DataFrame:
+        return self.fetch_market_snapshot_artifact().data
+
+    def fetch_market_snapshot_artifact(self) -> FetchArtifact:
         errors: list[str] = []
         try:
             df = self._fetch_market_snapshot_sina_https()
             if not df.empty:
-                return self._normalize_market_snapshot(df)
+                return FetchArtifact(
+                    data=self._normalize_market_snapshot(df),
+                    source_name="sina_https",
+                    source_endpoint="Market_Center.getHQNodeData",
+                    fetch_params={"node": "hs_a"},
+                    raw_records=df.to_dict(orient="records"),
+                )
         except Exception as exc:
             errors.append(f"sina_https: {exc}")
 
@@ -36,31 +56,67 @@ class AkShareProvider:
             try:
                 df = fetcher()
                 if not df.empty:
-                    return self._normalize_market_snapshot(df)
+                    return FetchArtifact(
+                        data=self._normalize_market_snapshot(df),
+                        source_name=fetcher.__name__,
+                        source_endpoint=fetcher.__name__,
+                        fetch_params={},
+                        raw_records=df.to_dict(orient="records"),
+                    )
             except Exception as exc:
                 errors.append(f"{fetcher.__name__}: {exc}")
         raise RuntimeError("; ".join(errors) or "failed to fetch market snapshot")
 
     def fetch_limit_up_pool(self, as_of: date) -> pd.DataFrame:
+        return self.fetch_limit_up_pool_artifact(as_of).data
+
+    def fetch_limit_up_pool_artifact(self, as_of: date) -> FetchArtifact:
         try:
             df = ak.stock_zt_pool_em(date=as_of.strftime("%Y%m%d"))
         except Exception:
-            return pd.DataFrame()
-        return self._normalize_limit_up_pool(df)
+            return FetchArtifact(
+                data=pd.DataFrame(),
+                source_name="stock_zt_pool_em",
+                source_endpoint="stock_zt_pool_em",
+                fetch_params={"date": as_of.strftime("%Y%m%d")},
+                raw_records=[],
+            )
+        return FetchArtifact(
+            data=self._normalize_limit_up_pool(df),
+            source_name="stock_zt_pool_em",
+            source_endpoint="stock_zt_pool_em",
+            fetch_params={"date": as_of.strftime("%Y%m%d")},
+            raw_records=df.to_dict(orient="records"),
+        )
 
     def fetch_concept_board_snapshot(self) -> pd.DataFrame:
+        return self.fetch_concept_board_snapshot_artifact().data
+
+    def fetch_concept_board_snapshot_artifact(self) -> FetchArtifact:
         errors: list[str] = []
         try:
             df = ak.stock_board_concept_name_em()
             if not df.empty:
-                return self._normalize_concept_boards(df)
+                return FetchArtifact(
+                    data=self._normalize_concept_boards(df),
+                    source_name="stock_board_concept_name_em",
+                    source_endpoint="stock_board_concept_name_em",
+                    fetch_params={},
+                    raw_records=df.to_dict(orient="records"),
+                )
         except Exception as exc:
             errors.append(f"stock_board_concept_name_em: {exc}")
 
         try:
             df = ak.stock_board_change_em()
             if not df.empty:
-                return self._normalize_board_changes(df)
+                return FetchArtifact(
+                    data=self._normalize_board_changes(df),
+                    source_name="stock_board_change_em",
+                    source_endpoint="stock_board_change_em",
+                    fetch_params={},
+                    raw_records=df.to_dict(orient="records"),
+                )
         except Exception as exc:
             errors.append(f"stock_board_change_em: {exc}")
 

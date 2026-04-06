@@ -90,7 +90,11 @@ Store stable reference facts needed for implementation and operations.
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
-- Landing/audit tables and the remaining canonical tables are schema-ready but not yet populated by the runtime.
+- Phase 1 runtime now also writes landing/audit rows for fetched daily datasets:
+  - `raw_ingestion_runs`
+  - `raw_dataset_batches`
+  - `raw_source_payload_rows`
+- The remaining canonical tables are schema-ready but not yet populated by the runtime.
 - Indicator computation still reads Raw V1 today; Raw V2 is not yet the canonical runtime read path.
 
 ## Glossary

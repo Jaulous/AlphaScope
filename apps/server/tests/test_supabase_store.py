@@ -85,32 +85,43 @@ class FakeWriteResponse:
 
 
 class FakeWriteQuery:
-    def __init__(self, table_name: str, sink: dict[str, list[dict]]):
+    def __init__(self, table_name: str, sink: dict[str, list[dict]], counters: dict[str, int]):
         self._table_name = table_name
         self._sink = sink
+        self._counters = counters
+        self._response_data = []
 
     def upsert(self, payload, on_conflict=None):
         self._sink.setdefault(self._table_name, []).append(
             {"payload": payload, "on_conflict": on_conflict}
         )
+        self._response_data = payload if isinstance(payload, list) else [payload]
         return self
 
     def insert(self, payload):
+        rows = payload if isinstance(payload, list) else [payload]
+        response_rows = []
+        for row in rows:
+            next_id = self._counters.get(self._table_name, 0) + 1
+            self._counters[self._table_name] = next_id
+            response_rows.append({"id": next_id, **row})
         self._sink.setdefault(self._table_name, []).append(
             {"payload": payload, "on_conflict": None}
         )
+        self._response_data = response_rows
         return self
 
     def execute(self):
-        return FakeWriteResponse()
+        return FakeWriteResponse(self._response_data)
 
 
 class FakeWriteClient:
     def __init__(self):
         self.sink: dict[str, list[dict]] = {}
+        self.counters: dict[str, int] = {}
 
     def table(self, name):
-        return FakeWriteQuery(name, self.sink)
+        return FakeWriteQuery(name, self.sink, self.counters)
 
 
 class SupabaseStoreSnapshotTests(unittest.TestCase):
@@ -298,6 +309,48 @@ class SupabaseStoreSnapshotTests(unittest.TestCase):
         self.assertEqual(payload[0]["limit_type"], "threshold_proxy")
         self.assertEqual(payload[1]["event_side"], "up")
         self.assertEqual(payload[1]["board_count"], 2)
+
+    def test_create_raw_ingestion_run_and_batch_persist_ids_and_rows(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeWriteClient()
+
+        run_id = store.create_raw_ingestion_run(
+            trigger="manual",
+            dataset_key="market_snapshot",
+            source_name="sina_https",
+            status="fetched",
+            as_of_date=date(2026, 4, 3),
+            request_params={"node": "hs_a"},
+            row_count=2,
+        )
+        batch_id = store.create_raw_dataset_batch(
+            run_id=run_id,
+            dataset_key="market_snapshot",
+            source_name="sina_https",
+            source_endpoint="Market_Center.getHQNodeData",
+            as_of_date=date(2026, 4, 3),
+            rows=[
+                {"symbol": "000001", "name": "Ping An"},
+                {"symbol": "000002", "name": "Vanke"},
+            ],
+        )
+        inserted = store.insert_raw_source_payload_rows(
+            batch_id,
+            [
+                {"symbol": "000001", "name": "Ping An"},
+                {"symbol": "000002", "name": "Vanke"},
+            ],
+        )
+
+        self.assertEqual(run_id, 1)
+        self.assertEqual(batch_id, 1)
+        self.assertEqual(inserted, 2)
+        self.assertIn("raw_ingestion_runs", store.client.sink)
+        self.assertIn("raw_dataset_batches", store.client.sink)
+        self.assertIn("raw_source_payload_rows", store.client.sink)
+        batch_payload = store.client.sink["raw_dataset_batches"][0]["payload"]
+        self.assertEqual(batch_payload["record_count"], 2)
+        self.assertEqual(batch_payload["column_names"], ["name", "symbol"])
 
 
 if __name__ == "__main__":
