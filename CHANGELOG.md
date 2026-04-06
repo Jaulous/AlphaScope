@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T22:21:08+08:00
+- Rebuilt the Raw V2 Excalidraw architecture asset with explicit text sizing fields so the local `.excalidraw.json` scene imports and renders correctly inside Excalidraw.
+- Kept the diagram scoped to the 10 Raw V2 tables plus the `AkShare -> landing/audit -> canonical raw facts -> quant-core + serving` dataflow.
+- Recorded the rendered asset under `docs/assets/raw-v2-architecture/` as the repository-local source for future diagram edits.
+
 ### 2026-04-06T21:33:23+08:00
 - Extended the Raw V2 read migration to the remaining limit-event-driven indicators by moving `highest_board` and the limit-event parts of `n_shape_limit_up_count` onto canonical Raw V2 datasets.
 - Added historical Raw V2 limit-event reads so `n_shape_limit_up_count` no longer depends on Raw V1 limit-up-pool history for prior-limit detection.
