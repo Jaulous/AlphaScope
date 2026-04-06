@@ -15,7 +15,7 @@ When an agent reads this file, it must:
 - Load current project context, architecture, workflow, decisions, and reference facts from docs before editing code.
 - Treat `./docs/*.md` as the maintained source of truth for repo behavior and operating constraints.
 - Update docs in the same change when architecture, workflow, runtime contracts, or operating guidance changes.
-- Update `./CHANGELOG.md` in the same change when a major milestone or important repo-facing change is completed.
+- Update `./CHANGELOG.md` in the same change when a major milestone or important repo-facing change is completed, and record the entry with an exact timestamp.
 
 ## Project-Specific Notes
 - AlphaScope is a quant indicator observation platform for short-term market analysis, not an editable whiteboard product.

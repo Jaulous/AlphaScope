@@ -72,7 +72,7 @@ Startup behavior:
 - Never push directly to `main`.
 - Create a feature branch for every change set.
 - Run the relevant verification commands before push: at minimum `pnpm test`, `pnpm typecheck`, and `pnpm build` for major changes.
-- Update [`../CHANGELOG.md`](../CHANGELOG.md) whenever a major product, architecture, deployment, pipeline, or customer-facing UX change is completed.
+- Update [`../CHANGELOG.md`](../CHANGELOG.md) whenever a major product, architecture, deployment, pipeline, or customer-facing UX change is completed, and use an exact ISO 8601 timestamp with timezone offset in the entry header.
 - Push every major completed change set to the remote branch immediately after verification.
 - After each important milestone, make sure the local branch, local commits, and remote tracking branch are in sync before stopping work.
 - Merge to `main` only through a reviewed pull request.
