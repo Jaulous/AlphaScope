@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T19:35:49+08:00
+- Corrected the serving-metrics homepage layout from a horizontal rail to a stacked one-row-per-indicator list while preserving the existing dark dashboard visual language.
+- Added per-indicator trend panels with explicit zoom-in, zoom-out, reset controls, plus an ECharts slider for detailed history inspection.
+- Removed the remaining horizontal-rail product copy so the page structure now matches the intended monitoring workflow.
+
 ### 2026-04-06T18:26:08+08:00
 - Restructured the homepage around four clearer layers while preserving the existing dark dashboard language: top-core monitor chips, runtime strip, horizontally scrollable serving-metrics rail, and theme tracking block.
 - Replaced the old split `core metrics / additional metrics` stack with a single horizontally scrollable indicator rail so future serving-layer line-chart indicators can scale without breaking page height.

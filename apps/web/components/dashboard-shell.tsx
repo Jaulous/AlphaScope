@@ -20,7 +20,7 @@ import {
 } from "@limitboard/ui";
 
 import {
-  MetricSparkline,
+  MetricTrendChart,
   StockCandlestickChart,
   ThemeTurnoverChart,
 } from "./dashboard-charts";
@@ -162,75 +162,66 @@ function IndicatorStockTable({
   );
 }
 
-function IndicatorCard({
+function ServingMetricRow({
   indicator,
-  variant = "rail",
 }: {
   indicator: DashboardIndicator;
-  variant?: "rail";
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const stocks = useMemo(() => getIndicatorStocks(indicator), [indicator]);
-  const hasHistory = Boolean(indicator.history && indicator.history.length > 1);
 
   return (
-    <Card
-      className={`min-h-[320px] min-w-[340px] max-w-[340px] snap-start border-white/10 bg-[rgba(7,11,22,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.35)] ${
-        variant === "rail" ? "shrink-0" : ""
-      }`}
-    >
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <CardDescription>{indicator.key}</CardDescription>
-            <CardTitle className="mt-2 text-lg text-white">
-              {indicator.title}
-            </CardTitle>
-          </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
-            {indicator.indicator_date}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[42px] font-semibold leading-none text-white">
-              {formatIndicatorValue(indicator)}
+    <Card className="overflow-hidden border-white/10 bg-[rgba(7,11,22,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+      <CardContent className="p-0">
+        <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="border-b border-white/8 p-6 xl:border-b-0 xl:border-r">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardDescription>{indicator.key}</CardDescription>
+                <CardTitle className="mt-2 text-[30px] leading-tight text-white">
+                  {indicator.title}
+                </CardTitle>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
+                {indicator.indicator_date}
+              </div>
             </div>
-            <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-              {indicator.unit ?? "metric"}
-            </div>
-          </div>
-          {stocks.length > 0 ? (
-            <Button
-              variant="default"
-              onClick={() => setIsExpanded((value) => !value)}
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              查看当日股票 {stocks.length}
-            </Button>
-          ) : null}
-        </div>
 
-        {hasHistory ? (
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-              Daily Tracking
+            <div className="mt-10">
+              <div className="font-mono text-[52px] font-semibold leading-none text-white">
+                {formatIndicatorValue(indicator)}
+              </div>
+              <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+                {indicator.unit ?? "metric"}
+              </div>
             </div>
-            <MetricSparkline
-              history={indicator.history ?? []}
-              className="mt-3 h-28"
-            />
+
+            {stocks.length > 0 ? (
+              <div className="mt-8">
+                <Button
+                  variant="default"
+                  onClick={() => setIsExpanded((value) => !value)}
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  查看当日股票 {stocks.length}
+                </Button>
+              </div>
+            ) : null}
           </div>
-        ) : null}
+
+          <div className="p-6">
+            <MetricTrendChart history={indicator.history ?? []} />
+          </div>
+        </div>
 
         {isExpanded ? (
-          <IndicatorStockTable indicatorKey={indicator.key} stocks={stocks} />
+          <div className="border-t border-white/8 p-6">
+            <IndicatorStockTable indicatorKey={indicator.key} stocks={stocks} />
+          </div>
         ) : null}
       </CardContent>
     </Card>
@@ -257,7 +248,7 @@ function MonitorChip({
   );
 }
 
-function MetricsRail({ indicators }: { indicators: DashboardIndicator[] }) {
+function MetricsList({ indicators }: { indicators: DashboardIndicator[] }) {
   if (indicators.length === 0) {
     return (
       <EmptyState label="No serving-layer indicators are available for the latest snapshot." />
@@ -265,14 +256,10 @@ function MetricsRail({ indicators }: { indicators: DashboardIndicator[] }) {
   }
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#07111b] to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#07111b] to-transparent" />
-      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 pr-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+    <div className="space-y-4">
         {indicators.map((indicator) => (
-          <IndicatorCard key={indicator.key} indicator={indicator} variant="rail" />
+          <ServingMetricRow key={indicator.key} indicator={indicator} />
         ))}
-      </div>
     </div>
   );
 }
@@ -491,8 +478,8 @@ export function DashboardShell() {
                 AlphaScope
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-400 sm:text-base">
-                每日从 serving 层输出中直接观察核心监控指标、全量指标轨道与题材热度追踪。
-                页面顶部只放最关键的监控值，详细指标则在下方以横向无限承载的方式展开。
+                每日从 serving 层输出中直接观察核心监控指标、全量指标明细与题材热度追踪。
+                页面顶部只放最关键的监控值，详细指标则在下方按单指标单行方式展开，方便持续追加更多趋势图。
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -628,15 +615,16 @@ export function DashboardShell() {
                   Serving Metrics
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Serving 层指标轨道
+                  Serving 层指标列表
                 </h2>
               </div>
               <p className="text-sm text-zinc-400">
-                横向滚动查看全部指标。后续新增折线图指标时，继续落在这一条无限承载轨道里。
+                每个指标独占一行，右侧折线支持放大、缩小和重置。后续新增 serving
+                层指标时，继续按相同的纵向行结构向下追加。
               </p>
             </div>
           </div>
-          <MetricsRail indicators={indicators} />
+          <MetricsList indicators={indicators} />
         </section>
         ) : null}
 

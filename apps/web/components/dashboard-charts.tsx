@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 
-import { ChartContainer, cn } from "@limitboard/ui";
+import { Button, ChartContainer, cn } from "@limitboard/ui";
 
 const ReactECharts = dynamic(() => import("echarts-for-react"), { ssr: false });
 
@@ -59,6 +60,155 @@ export function MetricSparkline({
         }}
       />
     </ChartContainer>
+  );
+}
+
+export function MetricTrendChart({
+  history,
+  className,
+}: {
+  history: MetricHistoryPoint[];
+  className?: string;
+}) {
+  const points = useMemo(
+    () =>
+      history.map((item) => ({
+        date: item.date,
+        value: item.value,
+      })),
+    [history],
+  );
+  const defaultVisiblePoints = Math.min(
+    Math.max(12, Math.ceil(points.length * 0.55)),
+    Math.max(points.length, 1),
+  );
+  const [visiblePoints, setVisiblePoints] = useState(defaultVisiblePoints);
+
+  useEffect(() => {
+    setVisiblePoints(defaultVisiblePoints);
+  }, [defaultVisiblePoints]);
+
+  const zoom = useMemo(() => {
+    if (points.length <= visiblePoints) {
+      return { start: 0, end: 100 };
+    }
+    const ratio = (visiblePoints / points.length) * 100;
+    return { start: Math.max(0, 100 - ratio), end: 100 };
+  }, [points.length, visiblePoints]);
+
+  if (points.length === 0) {
+    return (
+      <div className="flex h-[210px] items-center justify-center rounded-[22px] border border-white/8 bg-black/20 text-sm text-zinc-500">
+        暂无可展示的历史序列
+      </div>
+    );
+  }
+
+  const canZoomIn = visiblePoints > Math.max(6, Math.ceil(points.length * 0.2));
+  const canZoomOut = visiblePoints < points.length;
+
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+          Daily Tracking
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              setVisiblePoints((current) =>
+                Math.max(6, Math.floor(current * 0.72)),
+              )
+            }
+            disabled={!canZoomIn}
+          >
+            放大
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              setVisiblePoints((current) =>
+                Math.min(points.length, Math.ceil(current * 1.35)),
+              )
+            }
+            disabled={!canZoomOut}
+          >
+            缩小
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setVisiblePoints(defaultVisiblePoints)}
+            disabled={visiblePoints === defaultVisiblePoints}
+          >
+            重置
+          </Button>
+        </div>
+      </div>
+      <ChartContainer className="h-[210px] rounded-[22px] border border-white/8 bg-black/20 p-0">
+        <ReactECharts
+          style={{ height: "100%", width: "100%" }}
+          option={{
+            animation: false,
+            grid: { left: 18, right: 18, top: 18, bottom: 46 },
+            tooltip: { trigger: "axis" },
+            xAxis: {
+              type: "category",
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: "rgba(255,255,255,0.12)" } },
+              axisLabel: { color: "#71717a", fontSize: 11 },
+              data: points.map((item) => item.date),
+            },
+            yAxis: {
+              type: "value",
+              scale: true,
+              axisLine: { show: false },
+              axisTick: { show: false },
+              splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } },
+              axisLabel: { color: "#71717a", fontSize: 11 },
+            },
+            dataZoom: [
+              {
+                type: "inside",
+                start: zoom.start,
+                end: zoom.end,
+                zoomOnMouseWheel: true,
+                moveOnMouseMove: true,
+              },
+              {
+                type: "slider",
+                start: zoom.start,
+                end: zoom.end,
+                height: 18,
+                bottom: 10,
+                borderColor: "rgba(255,255,255,0.08)",
+                fillerColor: "rgba(34,197,94,0.14)",
+                backgroundColor: "rgba(255,255,255,0.04)",
+                dataBackground: {
+                  lineStyle: { color: "rgba(255,255,255,0.12)" },
+                  areaStyle: { color: "rgba(255,255,255,0.04)" },
+                },
+                textStyle: { color: "#71717a" },
+              },
+            ],
+            series: [
+              {
+                type: "line",
+                data: points.map((item) => item.value),
+                smooth: true,
+                symbol: "none",
+                connectNulls: false,
+                lineStyle: { color: "#59d471", width: 2.5 },
+                areaStyle: { color: "rgba(89, 212, 113, 0.08)" },
+              },
+            ],
+          }}
+        />
+      </ChartContainer>
+    </div>
   );
 }
 
