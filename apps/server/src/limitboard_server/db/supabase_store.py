@@ -168,6 +168,116 @@ class SupabaseStore:
             ],
         )
 
+    def fetch_raw_equity_daily_quotes_v2(self, trade_date: date) -> pd.DataFrame:
+        response = (
+            self.client.table("raw_equity_daily_quotes")
+            .select(
+                "trade_date,symbol,market,exchange,name,open,high,low,close,pre_close,change_amount,pct_change,volume,turnover,turnover_rate,amplitude,volume_ratio,pe_dynamic,pb,total_market_cap,float_market_cap,limit_up_price,limit_down_price,is_limit_up,is_limit_down,is_suspended,source_name,source_payload,metadata"
+            )
+            .eq("trade_date", trade_date.isoformat())
+            .order("symbol", desc=False)
+            .execute()
+        )
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "trade_date",
+                "symbol",
+                "market",
+                "exchange",
+                "name",
+                "open",
+                "high",
+                "low",
+                "close",
+                "pre_close",
+                "change_amount",
+                "pct_change",
+                "volume",
+                "turnover",
+                "turnover_rate",
+                "amplitude",
+                "volume_ratio",
+                "pe_dynamic",
+                "pb",
+                "total_market_cap",
+                "float_market_cap",
+                "limit_up_price",
+                "limit_down_price",
+                "is_limit_up",
+                "is_limit_down",
+                "is_suspended",
+                "source_name",
+                "source_payload",
+                "metadata",
+            ],
+        )
+
+    def fetch_raw_equity_daily_limit_events_v2(self, trade_date: date) -> pd.DataFrame:
+        response = (
+            self.client.table("raw_equity_daily_limit_events")
+            .select(
+                "trade_date,symbol,event_side,market,name,board_count,seal_amount,seal_volume,turnover_rate,open_times,first_limit_time,last_limit_time,limit_reason,limit_type,source_name,source_payload,metadata"
+            )
+            .eq("trade_date", trade_date.isoformat())
+            .order("event_side", desc=False)
+            .order("symbol", desc=False)
+            .execute()
+        )
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "trade_date",
+                "symbol",
+                "event_side",
+                "market",
+                "name",
+                "board_count",
+                "seal_amount",
+                "seal_volume",
+                "turnover_rate",
+                "open_times",
+                "first_limit_time",
+                "last_limit_time",
+                "limit_reason",
+                "limit_type",
+                "source_name",
+                "source_payload",
+                "metadata",
+            ],
+        )
+
+    def fetch_raw_concept_board_daily_v2(self, trade_date: date) -> pd.DataFrame:
+        response = (
+            self.client.table("raw_concept_board_daily")
+            .select(
+                "trade_date,board_type,board_name,board_code,turnover,pct_change,market_cap,advancers,decliners,leader,member_count,rank,source_name,source_payload,metadata"
+            )
+            .eq("trade_date", trade_date.isoformat())
+            .order("rank", desc=False)
+            .execute()
+        )
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "trade_date",
+                "board_type",
+                "board_name",
+                "board_code",
+                "turnover",
+                "pct_change",
+                "market_cap",
+                "advancers",
+                "decliners",
+                "leader",
+                "member_count",
+                "rank",
+                "source_name",
+                "source_payload",
+                "metadata",
+            ],
+        )
+
     def fetch_raw_stock_kline(
         self, snapshot_date: date, symbols: list[str] | None = None
     ) -> pd.DataFrame:

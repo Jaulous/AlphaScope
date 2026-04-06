@@ -44,11 +44,20 @@ Explain how the system is structured and why.
 8. Phase 1 runtime now dual-writes part of Raw V2 alongside Raw V1: trade calendar, security master, equity daily quotes, daily limit events, and concept board daily facts are written best-effort without blocking serving generation.
 9. For fetched daily datasets (`market_snapshot`, `limit_up_pool`, `concept_boards`), the runtime also writes Raw V2 landing/audit records into `raw_ingestion_runs`, `raw_dataset_batches`, and `raw_source_payload_rows`.
 10. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
-11. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
-12. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
-13. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
-14. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
-15. Next.js renders the dashboard from the API response and does not compute market state on the client.
+11. During the Raw V2 migration, the runtime now tries to read canonical Raw V2 tables back into the execution context (`raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, `raw_concept_board_daily`) and only falls back to Raw V1 field mapping when those reads are unavailable.
+12. The active theme universe is selected first, then the tracked equities universe, then indicator computation runs against the synchronized context.
+13. The first migrated read-path batch now prefers Raw V2 for:
+  - active theme universe
+  - tracked equities universe
+  - `market_turnover`
+  - `decliner_count`
+  - `active_capital_ratio`
+  - `up_limit_count`
+  - `down_limit_count`
+14. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
+15. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
+16. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
+17. Next.js renders the dashboard from the API response and does not compute market state on the client.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.
@@ -64,4 +73,4 @@ Explain how the system is structured and why.
 - Legacy naming still exists in some package/module identifiers (`limitboard_*`), even though the canonical product is AlphaScope.
 - Stock K-line name normalization is still imperfect for some symbols because upstream raw data is inconsistent.
 - Multiprocessing in `quant-core` improves throughput for larger indicator sets but increases runtime complexity and requires module-safe entrypoints.
-- The current production runtime is only partially migrated: Raw V1 still feeds indicator computation, while Raw V2 landing and canonical writes are best-effort and not yet the canonical read path.
+- The current production runtime is only partially migrated: a first indicator/universe batch now prefers Raw V2 reads, but the full engine has not yet cut over and still relies on Raw V1 compatibility fallback for the remaining metrics.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from quant_core.datasets import get_equity_daily_quotes
 from quant_core.indicators.base import BaseIndicator
 from quant_core.types import IndicatorContext, IndicatorDefinition, IndicatorResult
 
@@ -11,7 +12,7 @@ class ActiveCapitalRatioIndicator(BaseIndicator):
     display_name = "Active Capital Ratio"
 
     def compute(self, context: IndicatorContext, definition: IndicatorDefinition) -> IndicatorResult:
-        snapshot = context.market_snapshot.copy()
+        snapshot = get_equity_daily_quotes(context)
         snapshot["turnover"] = pd.to_numeric(snapshot["turnover"], errors="coerce").fillna(0.0)
         top_percent = float(definition.config.get("top_percent", 0.1))
         total_turnover = float(snapshot["turnover"].sum())

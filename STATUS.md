@@ -40,10 +40,19 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
+- The first runtime read-path batch now prefers canonical Raw V2 reads for:
+  - active theme universe
+  - tracked equities universe
+  - `market_turnover`
+  - `decliner_count`
+  - `active_capital_ratio`
+  - `up_limit_count`
+  - `down_limit_count`
+- When canonical Raw V2 rows are unavailable, the runtime falls back to deterministic Raw V1-to-V2 field mapping so serving generation stays stable during the migration.
 - Raw V2 adds:
   - landing/audit tables for original AkShare payload preservation
   - canonical domain-grain raw fact tables designed to support a future indicator library of roughly `100+` metrics
-- Ingestion has not yet been fully cut over to Raw V2, so the system is currently in dual-write transition rather than full Raw V2 operation.
+- Ingestion has not yet been fully cut over to Raw V2, so the system is currently in dual-write plus partial-read transition rather than full Raw V2 operation.
 
 ## Serving Tables
 
@@ -104,4 +113,4 @@ That warning state is expected on a Sunday. The system correctly backfilled the 
 - Add a historical ingestion runs page or endpoint, not only the latest run summary.
 - Normalize tracked stock names in the serving layer.
 - Add stronger source-level observability for AkShare latency and fallback usage.
-- Rewrite ingestion to dual-write Landing + Raw V2 canonical tables, then migrate indicator computation away from Raw V1.
+- Continue migrating the remaining indicators from Raw V1 compatibility inputs to direct Raw V2 canonical reads, starting with `highest_board` and `n_shape_limit_up_count`.

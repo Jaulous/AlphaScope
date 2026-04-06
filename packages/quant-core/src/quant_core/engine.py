@@ -92,6 +92,7 @@ class QuantEngine:
         stock_kline_history: pd.DataFrame | None = None,
         tracking_config: TrackingConfig | None = None,
         preloaded_stock_kline_rows: list[dict] | None = None,
+        datasets_override: dict[str, pd.DataFrame] | None = None,
     ) -> EngineResult:
         enabled_definitions = [
             definition for definition in definitions if definition.enabled
@@ -106,6 +107,8 @@ class QuantEngine:
             "limit_up_pool": limit_up_pool,
             "concept_boards": concept_boards,
         }
+        if datasets_override:
+            datasets.update(datasets_override)
         if historical_indicator_values is not None:
             datasets["historical_indicator_values"] = historical_indicator_values
         if historical_theme_volume is not None:

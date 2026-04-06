@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 
+from quant_core.datasets import get_concept_board_daily
 from quant_core.types import IndicatorContext, ThemeSelection
 from .base import BaseUniverseSelection
 
@@ -15,7 +16,7 @@ class ActiveThemesUniverse(BaseUniverseSelection):
         window_days = int(config.get("window_days", 20))
         expire_days = int(config.get("expire_days", 5))
 
-        today = context.concept_boards.copy()
+        today = get_concept_board_daily(context)
         if today.empty:
             return []
 

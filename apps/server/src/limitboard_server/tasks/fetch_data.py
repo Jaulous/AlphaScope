@@ -240,6 +240,15 @@ def run_daily_fetch(
             "market_snapshot": raw_market_snapshot,
             "limit_up_pool": raw_limit_up_pool,
             "concept_boards": raw_concept_boards,
+            **_load_indicator_raw_v2_datasets(
+                store=store,
+                as_of=as_of,
+                source_statuses=source_statuses,
+                warnings=warnings,
+                raw_market_snapshot=raw_market_snapshot,
+                raw_limit_up_pool=raw_limit_up_pool,
+                raw_concept_boards=raw_concept_boards,
+            ),
         },
     )
     active_themes = engine.active_theme_universe.select(
@@ -254,6 +263,7 @@ def run_daily_fetch(
             historical_indicator_values=indicator_history,
             historical_theme_volume=theme_history,
             active_themes=active_themes,
+            datasets=pre_context.datasets,
         ),
         tracking_config,
     )
@@ -383,6 +393,7 @@ def run_daily_fetch(
         stock_kline_history=stock_kline_history,
         tracking_config=tracking_config,
         preloaded_stock_kline_rows=preloaded_stock_kline_rows,
+        datasets_override=pre_context.datasets,
     )
 
     indicator_rows = [
@@ -593,3 +604,207 @@ def _persist_raw_v2_extensions(
             "Raw V2 persistence failed. Raw V1 and serving writes continued, "
             "but the new canonical raw tables may be incomplete."
         )
+
+
+def _load_indicator_raw_v2_datasets(
+    *,
+    store: SupabaseStore,
+    as_of: date,
+    source_statuses: dict[str, Any],
+    warnings: list[str],
+    raw_market_snapshot: pd.DataFrame,
+    raw_limit_up_pool: pd.DataFrame,
+    raw_concept_boards: pd.DataFrame,
+) -> dict[str, pd.DataFrame]:
+    datasets: dict[str, pd.DataFrame] = {}
+    read_errors: dict[str, str] = {}
+    fallback_datasets: list[str] = []
+
+    try:
+        equity_quotes = store.fetch_raw_equity_daily_quotes_v2(as_of)
+        if not equity_quotes.empty:
+            datasets["equity_daily_quotes"] = equity_quotes
+    except Exception as exc:
+        read_errors["equity_daily_quotes"] = str(exc)
+
+    try:
+        limit_events = store.fetch_raw_equity_daily_limit_events_v2(as_of)
+        if not limit_events.empty:
+            datasets["equity_daily_limit_events"] = limit_events
+    except Exception as exc:
+        read_errors["equity_daily_limit_events"] = str(exc)
+
+    try:
+        concept_board_daily = store.fetch_raw_concept_board_daily_v2(as_of)
+        if not concept_board_daily.empty:
+            datasets["concept_board_daily"] = concept_board_daily
+    except Exception as exc:
+        read_errors["concept_board_daily"] = str(exc)
+
+    if "equity_daily_quotes" not in datasets:
+        datasets["equity_daily_quotes"] = _build_equity_daily_quotes_fallback(
+            as_of=as_of,
+            market_snapshot=raw_market_snapshot,
+            limit_up_pool=raw_limit_up_pool,
+        )
+        fallback_datasets.append("equity_daily_quotes")
+    if "equity_daily_limit_events" not in datasets:
+        datasets["equity_daily_limit_events"] = _build_equity_daily_limit_events_fallback(
+            as_of=as_of,
+            limit_up_pool=raw_limit_up_pool,
+            market_snapshot=raw_market_snapshot,
+        )
+        fallback_datasets.append("equity_daily_limit_events")
+    if "concept_board_daily" not in datasets:
+        datasets["concept_board_daily"] = _build_concept_board_daily_fallback(
+            as_of=as_of,
+            concept_boards=raw_concept_boards,
+        )
+        fallback_datasets.append("concept_board_daily")
+
+    source_statuses["raw_v2_reads"] = {
+        "status": "ready",
+        "datasets": {
+            key: int(len(frame.index))
+            for key, frame in datasets.items()
+        },
+        "fallback_datasets": fallback_datasets,
+    }
+    if read_errors:
+        source_statuses["raw_v2_reads"]["read_errors"] = read_errors
+        warnings.append(
+            "Some canonical Raw V2 reads failed; indicator computation used fallback mappings for the missing datasets."
+        )
+    return datasets
+
+
+def _build_equity_daily_quotes_fallback(
+    *,
+    as_of: date,
+    market_snapshot: pd.DataFrame,
+    limit_up_pool: pd.DataFrame,
+) -> pd.DataFrame:
+    if market_snapshot.empty:
+        return pd.DataFrame()
+
+    limit_up_symbols = set(limit_up_pool["symbol"].dropna().astype(str).tolist())
+    payload: list[dict[str, Any]] = []
+    for _, row in market_snapshot.iterrows():
+        symbol = str(row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        pct_change = pd.to_numeric(row.get("pct_change"), errors="coerce")
+        payload.append(
+            {
+                "trade_date": as_of.isoformat(),
+                "symbol": symbol,
+                "market": "CN_A",
+                "exchange": _infer_exchange(symbol),
+                "name": row.get("name"),
+                "close": row.get("last_price"),
+                "change_amount": row.get("change_amount"),
+                "pct_change": float(pct_change) if pd.notna(pct_change) else None,
+                "volume": row.get("volume"),
+                "turnover": row.get("turnover"),
+                "turnover_rate": row.get("turnover_rate"),
+                "amplitude": row.get("amplitude"),
+                "pe_dynamic": row.get("pe_dynamic"),
+                "is_limit_up": symbol in limit_up_symbols
+                or (pd.notna(pct_change) and float(pct_change) >= 9.8),
+                "is_limit_down": pd.notna(pct_change) and float(pct_change) <= -9.8,
+            }
+        )
+    return pd.DataFrame(payload)
+
+
+def _build_equity_daily_limit_events_fallback(
+    *,
+    as_of: date,
+    limit_up_pool: pd.DataFrame,
+    market_snapshot: pd.DataFrame,
+) -> pd.DataFrame:
+    payload: list[dict[str, Any]] = []
+    if not limit_up_pool.empty:
+        for _, row in limit_up_pool.iterrows():
+            symbol = str(row.get("symbol") or "").strip()
+            if not symbol:
+                continue
+            payload.append(
+                {
+                    "trade_date": as_of.isoformat(),
+                    "symbol": symbol,
+                    "event_side": "up",
+                    "name": row.get("name"),
+                    "board_count": row.get("board_count"),
+                    "seal_amount": row.get("seal_funds"),
+                    "turnover_rate": row.get("turnover_rate"),
+                    "first_limit_time": row.get("first_limit_time"),
+                    "last_limit_time": row.get("last_limit_time"),
+                    "limit_type": "pool",
+                }
+            )
+    if not market_snapshot.empty:
+        snapshot = market_snapshot.copy()
+        snapshot["pct_change"] = pd.to_numeric(snapshot["pct_change"], errors="coerce")
+        for _, row in snapshot[snapshot["pct_change"] <= -9.8].iterrows():
+            symbol = str(row.get("symbol") or "").strip()
+            if not symbol:
+                continue
+            payload.append(
+                {
+                    "trade_date": as_of.isoformat(),
+                    "symbol": symbol,
+                    "event_side": "down",
+                    "name": row.get("name"),
+                    "turnover_rate": row.get("turnover_rate"),
+                    "limit_type": "threshold_proxy",
+                }
+            )
+    return pd.DataFrame(payload)
+
+
+def _build_concept_board_daily_fallback(
+    *,
+    as_of: date,
+    concept_boards: pd.DataFrame,
+) -> pd.DataFrame:
+    if concept_boards.empty:
+        return pd.DataFrame()
+
+    payload: list[dict[str, Any]] = []
+    for _, row in concept_boards.iterrows():
+        payload.append(
+            {
+                "trade_date": as_of.isoformat(),
+                "board_type": "concept",
+                "board_name": row.get("theme_name"),
+                "turnover": row.get("turnover"),
+                "pct_change": row.get("pct_change"),
+                "market_cap": row.get("market_cap"),
+                "advancers": row.get("advancers"),
+                "decliners": row.get("decliners"),
+                "leader": row.get("leader"),
+                "member_count": _safe_member_count(row.get("advancers"), row.get("decliners")),
+                "rank": row.get("rank"),
+                "metadata": row.get("metadata") or {},
+            }
+        )
+    return pd.DataFrame(payload)
+
+
+def _safe_member_count(advancers: Any, decliners: Any) -> int | None:
+    advancers_value = pd.to_numeric(advancers, errors="coerce")
+    decliners_value = pd.to_numeric(decliners, errors="coerce")
+    if pd.isna(advancers_value) and pd.isna(decliners_value):
+        return None
+    return int((0 if pd.isna(advancers_value) else advancers_value) + (0 if pd.isna(decliners_value) else decliners_value))
+
+
+def _infer_exchange(symbol: str) -> str | None:
+    if symbol.startswith(("60", "68", "90")):
+        return "SSE"
+    if symbol.startswith(("00", "30", "20")):
+        return "SZSE"
+    if symbol.startswith("8"):
+        return "BSE"
+    return None

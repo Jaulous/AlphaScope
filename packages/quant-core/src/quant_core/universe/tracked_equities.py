@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from quant_core.datasets import get_equity_daily_limit_events, get_equity_daily_quotes
 from quant_core.types import IndicatorContext, TrackingConfig
 
 
@@ -9,11 +10,9 @@ class TrackedEquitiesUniverse:
     def select(self, context: IndicatorContext, config: TrackingConfig) -> list[str]:
         symbols: list[str] = []
 
-        if not context.market_snapshot.empty:
-            snapshot = context.market_snapshot.copy()
-            snapshot["turnover"] = pd.to_numeric(
-                snapshot["turnover"], errors="coerce"
-            ).fillna(0.0)
+        snapshot = get_equity_daily_quotes(context)
+        if not snapshot.empty:
+            snapshot["turnover"] = pd.to_numeric(snapshot["turnover"], errors="coerce").fillna(0.0)
             symbols.extend(
                 snapshot.sort_values("turnover", ascending=False)
                 .head(config.top_turnover_count)["symbol"]
@@ -22,12 +21,15 @@ class TrackedEquitiesUniverse:
                 .tolist()
             )
 
-        if (
-            not context.limit_up_pool.empty
-            and "symbol" in context.limit_up_pool.columns
-        ):
+        limit_events = get_equity_daily_limit_events(context)
+        up_events = (
+            limit_events[limit_events["event_side"] == "up"]
+            if "event_side" in limit_events.columns
+            else pd.DataFrame()
+        )
+        if not up_events.empty and "symbol" in up_events.columns:
             symbols.extend(
-                context.limit_up_pool["symbol"]
+                up_events["symbol"]
                 .dropna()
                 .astype(str)
                 .head(config.limit_up_pool_count)

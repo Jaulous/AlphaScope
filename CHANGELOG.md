@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T21:28:27+08:00
+- Moved the first computation batch off Raw V1-only reads by teaching the runtime to load canonical Raw V2 quote, limit-event, and concept-board tables back into the execution context.
+- Migrated the active-theme universe, tracked-equities universe, and five base indicators to prefer Raw V2 data with deterministic Raw V1 compatibility fallback when canonical rows are unavailable.
+- Added quant-core tests that assert indicators and universe selection really consume Raw V2 datasets instead of only preserving the old market-snapshot path.
+
 ### 2026-04-06T21:00:40+08:00
 - Extended the Raw V2 transition beyond canonical fact dual-write by adding landing/audit writes for fetched daily datasets.
 - Market snapshot, limit-up pool, and concept-board fetches now record `raw_ingestion_runs`, `raw_dataset_batches`, and `raw_source_payload_rows` alongside their normalized raw tables.
