@@ -27,11 +27,11 @@ import {
 import { fetchDashboardSnapshot } from "../lib/api";
 
 const REFRESH_INTERVAL_MS = 60_000;
-const PRIMARY_INDICATOR_ORDER = [
+const TOP_MONITOR_INDICATOR_ORDER = [
   "up_limit_count",
-  "n_shape_limit_up_count",
+  "market_turnover",
+  "active_capital_ratio",
 ] as const;
-const PRIMARY_INDICATOR_KEYS = new Set<string>(PRIMARY_INDICATOR_ORDER);
 const THEME_PANEL_LIMIT = 8;
 const TRACKED_STOCK_PANEL_LIMIT = 12;
 
@@ -164,10 +164,10 @@ function IndicatorStockTable({
 
 function IndicatorCard({
   indicator,
-  prominent = false,
+  variant = "rail",
 }: {
   indicator: DashboardIndicator;
-  prominent?: boolean;
+  variant?: "rail";
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const stocks = useMemo(() => getIndicatorStocks(indicator), [indicator]);
@@ -175,21 +175,15 @@ function IndicatorCard({
 
   return (
     <Card
-      className={`border-white/10 bg-[rgba(7,11,22,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.35)] ${
-        prominent ? "min-h-[360px]" : ""
+      className={`min-h-[320px] min-w-[340px] max-w-[340px] snap-start border-white/10 bg-[rgba(7,11,22,0.92)] shadow-[0_24px_80px_rgba(0,0,0,0.35)] ${
+        variant === "rail" ? "shrink-0" : ""
       }`}
     >
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardDescription>{indicator.key}</CardDescription>
-            <CardTitle
-              className={
-                prominent
-                  ? "mt-2 text-2xl text-white"
-                  : "mt-2 text-lg text-white"
-              }
-            >
+            <CardTitle className="mt-2 text-lg text-white">
               {indicator.title}
             </CardTitle>
           </div>
@@ -201,13 +195,7 @@ function IndicatorCard({
       <CardContent className="space-y-5">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <div
-              className={`font-mono font-semibold leading-none text-white ${
-                prominent
-                  ? "text-[56px] sm:text-[68px]"
-                  : "text-[36px] sm:text-[42px]"
-              }`}
-            >
+            <div className="font-mono text-[42px] font-semibold leading-none text-white">
               {formatIndicatorValue(indicator)}
             </div>
             <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
@@ -236,7 +224,7 @@ function IndicatorCard({
             </div>
             <MetricSparkline
               history={indicator.history ?? []}
-              className={prominent ? "mt-3 h-28" : "mt-3 h-24"}
+              className="mt-3 h-28"
             />
           </div>
         ) : null}
@@ -246,6 +234,46 @@ function IndicatorCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function MonitorChip({
+  indicator,
+}: {
+  indicator: DashboardIndicator;
+}) {
+  return (
+    <div className="min-w-[140px] rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+        {indicator.title}
+      </div>
+      <div className="mt-4 font-mono text-[34px] font-semibold leading-none text-white">
+        {formatIndicatorValue(indicator)}
+      </div>
+      <div className="mt-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+        {indicator.unit ?? indicator.key}
+      </div>
+    </div>
+  );
+}
+
+function MetricsRail({ indicators }: { indicators: DashboardIndicator[] }) {
+  if (indicators.length === 0) {
+    return (
+      <EmptyState label="No serving-layer indicators are available for the latest snapshot." />
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#07111b] to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#07111b] to-transparent" />
+      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 pr-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+        {indicators.map((indicator) => (
+          <IndicatorCard key={indicator.key} indicator={indicator} variant="rail" />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -421,24 +449,21 @@ export function DashboardShell() {
     () => (snapshot?.tracked_stocks ?? []).slice(0, TRACKED_STOCK_PANEL_LIMIT),
     [snapshot],
   );
-  const primaryIndicators = useMemo(() => {
+  const topMonitorIndicators = useMemo(() => {
     const order = new Map<string, number>(
-      PRIMARY_INDICATOR_ORDER.map((key, index) => [key, index]),
+      TOP_MONITOR_INDICATOR_ORDER.map((key, index) => [key, index]),
     );
-    return indicators
-      .filter((indicator) => PRIMARY_INDICATOR_KEYS.has(indicator.key))
+    const selected = indicators
+      .filter((indicator) => order.has(indicator.key))
       .sort(
         (left, right) =>
           (order.get(left.key) ?? 99) - (order.get(right.key) ?? 99),
       );
+    const fallback = indicators.filter(
+      (indicator) => !selected.some((picked) => picked.key === indicator.key),
+    );
+    return [...selected, ...fallback].slice(0, 3);
   }, [indicators]);
-  const secondaryIndicators = useMemo(
-    () =>
-      indicators.filter(
-        (indicator) => !PRIMARY_INDICATOR_KEYS.has(indicator.key),
-      ),
-    [indicators],
-  );
   const warnings = snapshot?.warnings ?? [];
   const latestRun = snapshot?.latest_run ?? null;
   const hasSnapshot = snapshot !== null;
@@ -457,7 +482,7 @@ export function DashboardShell() {
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(21,48,74,0.22),transparent_38%),linear-gradient(180deg,#07111b_0%,#04070d_100%)] text-foreground">
       <div className="mx-auto flex w-full max-w-[1340px] flex-col gap-6 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <section className="overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(135deg,rgba(8,18,30,0.96),rgba(4,9,16,0.92))] shadow-[0_40px_120px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-col gap-6 px-6 py-7 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-8">
+          <div className="flex flex-col gap-6 px-6 py-7 lg:flex-row lg:items-start lg:justify-between lg:px-8 lg:py-8">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-emerald-200">
                 Daily Quant Surface
@@ -466,89 +491,75 @@ export function DashboardShell() {
                 AlphaScope
               </h1>
               <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-400 sm:text-base">
-                每日从原始行情计算指标、主题和跟踪股票，并在同一页面上保留历史走势。
-                指标卡展示当日值与历史追踪，主题与个股面板展示连续序列，方便观察日内
-                热点切换与强势股延续性。
+                每日从 serving 层输出中直接观察核心监控指标、全量指标轨道与题材热度追踪。
+                页面顶部只放最关键的监控值，详细指标则在下方以横向无限承载的方式展开。
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardHeader className="pb-3">
-                  <CardDescription>Indicators</CardDescription>
-                  <CardTitle className="text-3xl text-white">
-                    {showInitialLoading ? "..." : indicators.length || "--"}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardHeader className="pb-3">
-                  <CardDescription>Themes</CardDescription>
-                  <CardTitle className="text-3xl text-white">
-                    {showInitialLoading
-                      ? "..."
-                      : snapshot?.active_themes.length || "--"}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardHeader className="pb-3">
-                  <CardDescription>Tracked Stocks</CardDescription>
-                  <CardTitle className="text-3xl text-white">
-                    {showInitialLoading
-                      ? "..."
-                      : snapshot?.tracked_stocks.length || "--"}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-              <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardHeader className="pb-3">
-                  <CardDescription>As Of</CardDescription>
-                  <CardTitle className="text-xl text-zinc-100">
-                    {showInitialLoading ? "Loading..." : snapshot?.as_of ?? "--"}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {showInitialLoading ? (
+                <>
+                  <div className="min-w-[140px] rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-zinc-400">
+                    Loading...
+                  </div>
+                  <div className="min-w-[140px] rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-zinc-400">
+                    Loading...
+                  </div>
+                  <div className="min-w-[140px] rounded-[20px] border border-white/10 bg-white/5 px-4 py-4 text-zinc-400">
+                    Loading...
+                  </div>
+                </>
+              ) : (
+                topMonitorIndicators.map((indicator) => (
+                  <MonitorChip key={indicator.key} indicator={indicator} />
+                ))
+              )}
             </div>
           </div>
         </section>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-              Runtime
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              最新计算快照
-            </h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardContent className="px-4 py-3 text-sm text-zinc-300">
-                  最近刷新:{" "}
-                  {showInitialLoading
-                    ? "Loading..."
-                    : formatTimestamp(snapshot?.generated_at)}
-                </CardContent>
-              </Card>
-            {latestRun ? (
-              <Card className="border-white/10 bg-white/5 shadow-none">
-                <CardContent className="px-4 py-3 text-sm text-zinc-300">
+        <section className="rounded-[28px] border border-sky-400/20 bg-[linear-gradient(135deg,rgba(8,18,30,0.88),rgba(8,18,30,0.7))] px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                Runtime
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">
+                最新计算快照
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+                最近刷新:{" "}
+                {showInitialLoading
+                  ? "Loading..."
+                  : formatTimestamp(snapshot?.generated_at)}
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+                当前快照: {showInitialLoading ? "Loading..." : snapshot?.as_of ?? "--"}
+              </div>
+              {latestRun ? (
+                <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
                   最近任务: {latestRun.status} · {latestRun.target_date}
-                </CardContent>
-              </Card>
-            ) : null}
-            <Button
-              variant="accent"
-              onClick={() => void loadSnapshot("refresh")}
-              disabled={isRefreshing}
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-              />
-              {isRefreshing ? "Refreshing" : "Refresh"}
-            </Button>
+                </div>
+              ) : null}
+              <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
+                指标 {showInitialLoading ? "..." : indicators.length} · 题材{" "}
+                {showInitialLoading ? "..." : snapshot?.active_themes.length ?? 0} · 个股{" "}
+                {showInitialLoading ? "..." : snapshot?.tracked_stocks.length ?? 0}
+              </div>
+              <Button
+                variant="accent"
+                onClick={() => void loadSnapshot("refresh")}
+                disabled={isRefreshing}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+                {isRefreshing ? "Refreshing" : "Refresh"}
+              </Button>
+            </div>
           </div>
-        </div>
+        </section>
 
         {error ? (
           <Card className="border-rose-500/20 bg-rose-500/10 shadow-none">
@@ -609,48 +620,23 @@ export function DashboardShell() {
         ) : null}
 
         {showMetricSections ? (
-        <section className="space-y-4">
+        <section className="space-y-4 rounded-[30px] border border-emerald-400/14 bg-[linear-gradient(180deg,rgba(7,11,22,0.76),rgba(4,8,15,0.58))] px-5 py-5 shadow-[0_30px_90px_rgba(0,0,0,0.24)]">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-              Core Metrics
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">
-              核心日度指标与历史追踪
-            </h2>
-          </div>
-          {showInitialLoading ? null : primaryIndicators.length > 0 ? (
-            <div className="grid gap-5 lg:grid-cols-2">
-              {primaryIndicators.map((indicator) => (
-                <IndicatorCard
-                  key={indicator.key}
-                  indicator={indicator}
-                  prominent
-                />
-              ))}
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                  Serving Metrics
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">
+                  Serving 层指标轨道
+                </h2>
+              </div>
+              <p className="text-sm text-zinc-400">
+                横向滚动查看全部指标。后续新增折线图指标时，继续落在这一条无限承载轨道里。
+              </p>
             </div>
-          ) : (
-            <EmptyState label="No primary indicators available for the latest snapshot." />
-          )}
-        </section>
-        ) : null}
-
-        {showMetricSections ? (
-        <section className="space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-              Additional Metrics
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">扩展指标</h2>
           </div>
-          {showInitialLoading ? null : secondaryIndicators.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {secondaryIndicators.map((indicator) => (
-                <IndicatorCard key={indicator.key} indicator={indicator} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState label="No additional indicators available for the latest snapshot." />
-          )}
+          <MetricsRail indicators={indicators} />
         </section>
         ) : null}
 
@@ -661,7 +647,7 @@ export function DashboardShell() {
               Active Themes
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              题材热度连续跟踪
+              题材热度追踪模块
             </h2>
           </div>
           {showInitialLoading ? null : themes.length > 0 ? (
@@ -683,7 +669,7 @@ export function DashboardShell() {
               Tracked Equities
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-white">
-              跟踪股票 K 线与强弱变化
+              跟踪个股模块
             </h2>
           </div>
           {showInitialLoading ? null : trackedStocks.length > 0 ? (

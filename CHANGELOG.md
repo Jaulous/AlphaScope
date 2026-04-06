@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T18:26:08+08:00
+- Restructured the homepage around four clearer layers while preserving the existing dark dashboard language: top-core monitor chips, runtime strip, horizontally scrollable serving-metrics rail, and theme tracking block.
+- Replaced the old split `core metrics / additional metrics` stack with a single horizontally scrollable indicator rail so future serving-layer line-chart indicators can scale without breaking page height.
+- Kept tracked equities as a separate lower module and retained the current visual system instead of introducing a new theme.
+
 ### 2026-04-06T18:02:00+08:00
 - Standardized the changelog format on exact timestamps instead of date-only entries.
 - Required future important-change entries to record precise local time with timezone offset for reliable backtracking.
