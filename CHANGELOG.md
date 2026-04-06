@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-06T20:55:23+08:00
+- Started the Raw V2 runtime refactor by extending the daily fetch pipeline to dual-write core canonical raw tables while preserving the existing Raw V1 and serving path.
+- Added best-effort runtime writes for `raw_trade_calendar`, `raw_security_master`, `raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, and `raw_concept_board_daily` so the new raw architecture begins accumulating usable data immediately.
+- Added backend tests for the new Raw V2 quote and limit-event persistence logic and updated architecture/status docs to reflect the transition state accurately.
+
 ### 2026-04-06T20:44:03+08:00
 - Redesigned the raw-layer target architecture to support a future indicator library on the order of `100+` metrics instead of keeping only a few indicator-specific raw tables.
 - Introduced a non-breaking Raw V2 schema with landing/audit tables for original AkShare payload preservation plus canonical raw fact tables for trade calendar, security master, daily equity quotes, limit events, boards, constituents, and indexes.

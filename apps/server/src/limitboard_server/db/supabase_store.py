@@ -477,6 +477,267 @@ class SupabaseStore:
         ).execute()
         return len(payload)
 
+    def upsert_raw_trade_calendar(
+        self,
+        trade_dates: set[date],
+        *,
+        market: str = "CN_A",
+        source_name: str = "akshare",
+    ) -> int:
+        if not trade_dates:
+            return 0
+        payload = [
+            {
+                "market": market,
+                "trade_date": trade_date.isoformat(),
+                "is_trading_day": True,
+                "source_name": source_name,
+                "source_payload": {},
+                "metadata": {},
+            }
+            for trade_date in sorted(trade_dates)
+        ]
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["market", "trade_date"])
+        )
+        self.client.table("raw_trade_calendar").upsert(
+            payload, on_conflict="market,trade_date"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_security_master(
+        self,
+        market_snapshot: pd.DataFrame,
+        *,
+        market: str = "CN_A",
+        source_name: str = "akshare",
+    ) -> int:
+        if market_snapshot.empty:
+            return 0
+        payload = []
+        for _, row in market_snapshot.iterrows():
+            symbol = str(row.get("symbol") or "").strip()
+            if not symbol:
+                continue
+            payload.append(
+                {
+                    "market": market,
+                    "symbol": symbol,
+                    "exchange": self._infer_exchange(symbol),
+                    "security_type": "equity",
+                    "name": row.get("name"),
+                    "board": self._infer_board(symbol),
+                    "industry": None,
+                    "list_date": None,
+                    "delist_date": None,
+                    "status": "active",
+                    "source_name": source_name,
+                    "source_payload": {},
+                    "metadata": {},
+                    "updated_at": datetime.now(tz=ZoneInfo("UTC")).isoformat(),
+                }
+            )
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["market", "symbol"])
+        )
+        self.client.table("raw_security_master").upsert(
+            payload, on_conflict="market,symbol"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_equity_daily_quotes(
+        self,
+        as_of: date,
+        market_snapshot: pd.DataFrame,
+        *,
+        limit_up_pool: pd.DataFrame | None = None,
+        market: str = "CN_A",
+        source_name: str = "akshare",
+    ) -> int:
+        if market_snapshot.empty:
+            return 0
+        limit_up_symbols = set()
+        if limit_up_pool is not None and not limit_up_pool.empty:
+            limit_up_symbols = set(
+                limit_up_pool["symbol"].dropna().astype(str).tolist()
+            )
+
+        payload = []
+        for _, row in market_snapshot.iterrows():
+            symbol = str(row.get("symbol") or "").strip()
+            if not symbol:
+                continue
+            pct_change = row.get("pct_change")
+            payload.append(
+                {
+                    "trade_date": as_of.isoformat(),
+                    "symbol": symbol,
+                    "market": market,
+                    "exchange": self._infer_exchange(symbol),
+                    "name": row.get("name"),
+                    "open": None,
+                    "high": None,
+                    "low": None,
+                    "close": row.get("last_price"),
+                    "pre_close": None,
+                    "change_amount": row.get("change_amount"),
+                    "pct_change": pct_change,
+                    "volume": row.get("volume"),
+                    "turnover": row.get("turnover"),
+                    "turnover_rate": row.get("turnover_rate"),
+                    "amplitude": row.get("amplitude"),
+                    "volume_ratio": None,
+                    "pe_dynamic": row.get("pe_dynamic"),
+                    "pb": None,
+                    "total_market_cap": None,
+                    "float_market_cap": None,
+                    "limit_up_price": None,
+                    "limit_down_price": None,
+                    "is_limit_up": symbol in limit_up_symbols
+                    or self._is_limit_threshold_hit(pct_change, threshold=9.8),
+                    "is_limit_down": self._is_limit_threshold_hit(
+                        pct_change, threshold=-9.8
+                    ),
+                    "is_suspended": False,
+                    "source_name": source_name,
+                    "source_payload": {},
+                    "metadata": {},
+                }
+            )
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["trade_date", "symbol"])
+        )
+        self.client.table("raw_equity_daily_quotes").upsert(
+            payload, on_conflict="trade_date,symbol"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_equity_daily_limit_events(
+        self,
+        as_of: date,
+        *,
+        limit_up_pool: pd.DataFrame,
+        market_snapshot: pd.DataFrame | None = None,
+        market: str = "CN_A",
+        source_name: str = "akshare",
+    ) -> int:
+        payload: list[dict[str, Any]] = []
+        if limit_up_pool is not None and not limit_up_pool.empty:
+            for _, row in limit_up_pool.iterrows():
+                symbol = str(row.get("symbol") or "").strip()
+                if not symbol:
+                    continue
+                payload.append(
+                    {
+                        "trade_date": as_of.isoformat(),
+                        "symbol": symbol,
+                        "event_side": "up",
+                        "market": market,
+                        "name": row.get("name"),
+                        "board_count": row.get("board_count"),
+                        "seal_amount": row.get("seal_funds"),
+                        "seal_volume": None,
+                        "turnover_rate": row.get("turnover_rate"),
+                        "open_times": None,
+                        "first_limit_time": row.get("first_limit_time"),
+                        "last_limit_time": row.get("last_limit_time"),
+                        "limit_reason": None,
+                        "limit_type": "pool",
+                        "source_name": source_name,
+                        "source_payload": {},
+                        "metadata": {},
+                    }
+                )
+
+        if market_snapshot is not None and not market_snapshot.empty:
+            for _, row in market_snapshot.iterrows():
+                symbol = str(row.get("symbol") or "").strip()
+                if not symbol:
+                    continue
+                if not self._is_limit_threshold_hit(row.get("pct_change"), -9.8):
+                    continue
+                payload.append(
+                    {
+                        "trade_date": as_of.isoformat(),
+                        "symbol": symbol,
+                        "event_side": "down",
+                        "market": market,
+                        "name": row.get("name"),
+                        "board_count": None,
+                        "seal_amount": None,
+                        "seal_volume": None,
+                        "turnover_rate": row.get("turnover_rate"),
+                        "open_times": None,
+                        "first_limit_time": None,
+                        "last_limit_time": None,
+                        "limit_reason": None,
+                        "limit_type": "threshold_proxy",
+                        "source_name": source_name,
+                        "source_payload": {},
+                        "metadata": {
+                            "pct_change": self._sanitize_value(row.get("pct_change")),
+                        },
+                    }
+                )
+
+        if not payload:
+            return 0
+
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["trade_date", "symbol", "event_side"])
+        )
+        self.client.table("raw_equity_daily_limit_events").upsert(
+            payload, on_conflict="trade_date,symbol,event_side"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_concept_board_daily(
+        self,
+        as_of: date,
+        concept_boards: pd.DataFrame,
+        *,
+        board_type: str = "concept",
+        source_name: str = "akshare",
+    ) -> int:
+        if concept_boards.empty:
+            return 0
+        payload = []
+        for _, row in concept_boards.iterrows():
+            board_name = str(row.get("theme_name") or "").strip()
+            if not board_name:
+                continue
+            advancers = self._safe_int(row.get("advancers"))
+            decliners = self._safe_int(row.get("decliners"))
+            member_count = None
+            if advancers is not None or decliners is not None:
+                member_count = (advancers or 0) + (decliners or 0)
+            payload.append(
+                {
+                    "trade_date": as_of.isoformat(),
+                    "board_type": board_type,
+                    "board_name": board_name,
+                    "board_code": None,
+                    "turnover": row.get("turnover"),
+                    "pct_change": row.get("pct_change"),
+                    "market_cap": row.get("market_cap"),
+                    "advancers": advancers,
+                    "decliners": decliners,
+                    "leader": row.get("leader"),
+                    "member_count": member_count,
+                    "rank": row.get("rank"),
+                    "source_name": source_name,
+                    "source_payload": {},
+                    "metadata": {},
+                }
+            )
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["trade_date", "board_type", "board_name"])
+        )
+        self.client.table("raw_concept_board_daily").upsert(
+            payload, on_conflict="trade_date,board_type,board_name"
+        ).execute()
+        return len(payload)
+
     def upsert_theme_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
             return
@@ -800,6 +1061,47 @@ class SupabaseStore:
             except Exception:
                 return value
         return value
+
+    @staticmethod
+    def _infer_exchange(symbol: str) -> str | None:
+        raw = str(symbol).strip()
+        if raw.startswith(("600", "601", "603", "605", "688", "689", "510", "511", "512", "513", "515", "518")):
+            return "SSE"
+        if raw.startswith(("000", "001", "002", "003", "300", "301", "159")):
+            return "SZSE"
+        if raw.startswith(("430", "800", "830", "831", "832", "833", "835", "836", "837", "838", "839")):
+            return "BSE"
+        return None
+
+    @classmethod
+    def _infer_board(cls, symbol: str) -> str | None:
+        raw = str(symbol).strip()
+        if raw.startswith(("688", "689")):
+            return "STAR"
+        if raw.startswith(("300", "301")):
+            return "ChiNext"
+        if raw.startswith(("430", "800", "830", "831", "832", "833", "835", "836", "837", "838", "839")):
+            return "Beijing"
+        if cls._infer_exchange(raw) == "SSE":
+            return "Main"
+        if cls._infer_exchange(raw) == "SZSE":
+            return "Main"
+        return None
+
+    @classmethod
+    def _is_limit_threshold_hit(cls, value: Any, threshold: float) -> bool:
+        if value is None or pd.isna(value):
+            return False
+        numeric = float(value)
+        if threshold >= 0:
+            return numeric >= threshold
+        return numeric <= threshold
+
+    @staticmethod
+    def _safe_int(value: Any) -> int | None:
+        if value is None or pd.isna(value):
+            return None
+        return int(value)
 
     @staticmethod
     def _market_day_start(value: date) -> str:

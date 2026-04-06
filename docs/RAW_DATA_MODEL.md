@@ -187,5 +187,12 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
 - Keep old raw tables only as transitional compatibility views or deprecate them.
 
 ## Transitional Reality
-- Current production code still reads and writes the older Raw V1 tables.
-- Raw V2 is now the target architecture and schema direction, not yet the active runtime data path.
+- Current production code still reads Raw V1 for indicator computation and serving.
+- Phase 1 runtime now also writes part of Raw V2 canonical storage:
+  - `raw_trade_calendar`
+  - `raw_security_master`
+  - `raw_equity_daily_quotes`
+  - `raw_equity_daily_limit_events`
+  - `raw_concept_board_daily`
+- Landing/audit tables and the remaining canonical tables are not yet populated by the runtime.
+- Raw V2 is now the active schema direction, but not yet the sole runtime read path.

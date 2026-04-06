@@ -84,7 +84,14 @@ Store stable reference facts needed for implementation and operations.
     - `raw_concept_board_daily`
     - `raw_concept_board_constituents_daily`
     - `raw_index_daily_quotes`
-- Raw V2 is intended to support a broad indicator library; the runtime code has not yet switched from Raw V1 to Raw V2.
+- Phase 1 runtime now writes a subset of Raw V2 canonical tables:
+  - `raw_trade_calendar`
+  - `raw_security_master`
+  - `raw_equity_daily_quotes`
+  - `raw_equity_daily_limit_events`
+  - `raw_concept_board_daily`
+- Landing/audit tables and the remaining canonical tables are schema-ready but not yet populated by the runtime.
+- Indicator computation still reads Raw V1 today; Raw V2 is not yet the canonical runtime read path.
 
 ## Glossary
 - `raw_* tables`: persisted source-of-truth ingestion tables used to rebuild market context.

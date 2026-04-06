@@ -28,12 +28,18 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
 
 ## Raw Layer Redesign Status
 
-- The current production runtime still writes the Raw V1 tables listed above.
+- The current production runtime still writes the Raw V1 tables listed above and still reads them for indicator computation.
 - A Raw V2 schema has now been introduced in [`supabase/migrations/0007_raw_data_layer_v2.sql`](./supabase/migrations/0007_raw_data_layer_v2.sql) and documented in [`docs/RAW_DATA_MODEL.md`](./docs/RAW_DATA_MODEL.md).
+- Phase 1 ingestion now also writes part of Raw V2 canonical storage:
+  - `raw_trade_calendar`
+  - `raw_security_master`
+  - `raw_equity_daily_quotes`
+  - `raw_equity_daily_limit_events`
+  - `raw_concept_board_daily`
 - Raw V2 adds:
   - landing/audit tables for original AkShare payload preservation
   - canonical domain-grain raw fact tables designed to support a future indicator library of roughly `100+` metrics
-- Ingestion has not yet been cut over to Raw V2, so this is currently a schema-and-architecture milestone, not an active runtime change.
+- Ingestion has not yet been fully cut over to Raw V2, so the system is currently in dual-write transition rather than full Raw V2 operation.
 
 ## Serving Tables
 

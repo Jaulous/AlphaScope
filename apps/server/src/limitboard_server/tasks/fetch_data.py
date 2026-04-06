@@ -102,6 +102,11 @@ def run_daily_fetch(
         "raw_limit_up_pool_count": 0,
         "raw_concept_board_count": 0,
         "raw_stock_kline_count": 0,
+        "raw_v2_trade_calendar_count": 0,
+        "raw_v2_security_master_count": 0,
+        "raw_v2_equity_quote_count": 0,
+        "raw_v2_limit_event_count": 0,
+        "raw_v2_board_daily_count": 0,
     }
 
     market_snapshot, market_fetched = _fetch_source_with_reuse(
@@ -142,6 +147,18 @@ def run_daily_fetch(
             as_of, concept_boards
         )
     raw_concept_boards = store.fetch_raw_concept_boards(as_of)
+
+    _persist_raw_v2_extensions(
+        store=store,
+        engine=engine,
+        as_of=as_of,
+        market_snapshot=raw_market_snapshot,
+        limit_up_pool=raw_limit_up_pool,
+        concept_boards=raw_concept_boards,
+        source_statuses=source_statuses,
+        warnings=warnings,
+        raw_counts=raw_counts,
+    )
 
     existing_serving = store.has_serving_snapshot(as_of)
     critical_missing = raw_market_snapshot.empty or raw_concept_boards.empty
@@ -446,3 +463,57 @@ def _fetch_source_with_reuse(
         "errors": errors,
     }
     return existing, False
+
+
+def _persist_raw_v2_extensions(
+    *,
+    store: SupabaseStore,
+    engine: QuantEngine,
+    as_of: date,
+    market_snapshot: pd.DataFrame,
+    limit_up_pool: pd.DataFrame,
+    concept_boards: pd.DataFrame,
+    source_statuses: dict[str, Any],
+    warnings: list[str],
+    raw_counts: dict[str, int],
+) -> None:
+    try:
+        raw_counts["raw_v2_trade_calendar_count"] = store.upsert_raw_trade_calendar(
+            engine.provider.trade_dates()
+        )
+        raw_counts["raw_v2_security_master_count"] = store.upsert_raw_security_master(
+            market_snapshot
+        )
+        raw_counts["raw_v2_equity_quote_count"] = store.upsert_raw_equity_daily_quotes(
+            as_of,
+            market_snapshot,
+            limit_up_pool=limit_up_pool,
+        )
+        raw_counts["raw_v2_limit_event_count"] = (
+            store.upsert_raw_equity_daily_limit_events(
+                as_of,
+                limit_up_pool=limit_up_pool,
+                market_snapshot=market_snapshot,
+            )
+        )
+        raw_counts["raw_v2_board_daily_count"] = store.upsert_raw_concept_board_daily(
+            as_of,
+            concept_boards,
+        )
+        source_statuses["raw_v2"] = {
+            "status": "persisted",
+            "trade_calendar_count": raw_counts["raw_v2_trade_calendar_count"],
+            "security_master_count": raw_counts["raw_v2_security_master_count"],
+            "equity_quote_count": raw_counts["raw_v2_equity_quote_count"],
+            "limit_event_count": raw_counts["raw_v2_limit_event_count"],
+            "board_daily_count": raw_counts["raw_v2_board_daily_count"],
+        }
+    except Exception as exc:
+        source_statuses["raw_v2"] = {
+            "status": "write_failed",
+            "error": str(exc),
+        }
+        warnings.append(
+            "Raw V2 persistence failed. Raw V1 and serving writes continued, "
+            "but the new canonical raw tables may be incomplete."
+        )
