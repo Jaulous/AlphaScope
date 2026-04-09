@@ -11,6 +11,10 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-09T22:41:04+08:00
+- Removed the obsolete `docs/assets/raw-v2-architecture/` Excalidraw documentation asset after the repo documentation model was simplified around the maintained core docs.
+- Cleaned local documentation garbage files and added `supabase/.temp/` to `.gitignore` so temporary Supabase CLI state does not keep polluting the worktree.
+
 ### 2026-04-09T22:32:12+08:00
 - Unified the threshold for Git maintenance and `CHANGELOG.md`: the same important-milestone definition in `docs/WORKFLOW.md` now drives `verify -> commit -> push -> changelog`.
 - Removed the extra "major repo-facing change" filter so future milestone handling stays simple and does not rely on a second subjective standard.
