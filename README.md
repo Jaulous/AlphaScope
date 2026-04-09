@@ -4,8 +4,10 @@ AlphaScope is a Turborepo monorepo for a quant indicator observation platform. I
 
 ## Start Here
 - Read [`SOUL.md`](./SOUL.md) for repo-wide response and execution rules.
+- Read [`AGENTS.md`](./AGENTS.md) for the agent execution contract and required doc-loading order.
 - Read [`docs/DOCS_INDEX.md`](./docs/DOCS_INDEX.md) for the maintained documentation map.
 - Read [`docs/PRD.md`](./docs/PRD.md) for the current product definition.
+- Read [`docs/RAW_DATA_MODEL.md`](./docs/RAW_DATA_MODEL.md) for the maintained raw-layer structure and storage contract.
 - Use [`STATUS.md`](./STATUS.md) for the last verified runtime snapshot.
 - Use [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) for operational debugging.
 
@@ -49,8 +51,10 @@ PYTHONPATH=apps/server/src:packages/quant-core/src .venv/bin/python3 -m limitboa
 ```
 
 ## Documentation Map
-- [`docs/PROJECT_CONTEXT.md`](./docs/PROJECT_CONTEXT.md)
+- [`AGENTS.md`](./AGENTS.md)
+- [`docs/PRD.md`](./docs/PRD.md)
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- [`docs/RAW_DATA_MODEL.md`](./docs/RAW_DATA_MODEL.md)
 - [`docs/WORKFLOW.md`](./docs/WORKFLOW.md)
 - [`docs/DECISIONS.md`](./docs/DECISIONS.md)
 - [`docs/REFERENCE.md`](./docs/REFERENCE.md)

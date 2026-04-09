@@ -46,6 +46,10 @@ class FakeQuery:
         self._rows = [row for row in self._rows if row.get(key) < value]
         return self
 
+    def lte(self, key, value):
+        self._rows = [row for row in self._rows if row.get(key) <= value]
+        return self
+
     def eq(self, key, value):
         self._rows = [row for row in self._rows if row.get(key) == value]
         return self
@@ -125,6 +129,165 @@ class FakeWriteClient:
 
 
 class SupabaseStoreSnapshotTests(unittest.TestCase):
+    def test_fetch_raw_market_snapshot_prefers_raw_v2_mapping(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeClient(
+            {
+                "raw_equity_daily_quotes": [
+                    {
+                        "trade_date": "2026-03-06",
+                        "symbol": "000001",
+                        "market": "CN_A",
+                        "exchange": "SZSE",
+                        "name": "Ping An",
+                        "open": 10.0,
+                        "high": 10.8,
+                        "low": 9.8,
+                        "close": 10.5,
+                        "pre_close": 10.1,
+                        "change_amount": 0.4,
+                        "pct_change": 3.96,
+                        "volume": 1000.0,
+                        "turnover": 10000.0,
+                        "turnover_rate": 5.1,
+                        "amplitude": 6.2,
+                        "volume_ratio": 1.3,
+                        "pe_dynamic": 9.1,
+                        "pb": 1.1,
+                        "total_market_cap": 1000000.0,
+                        "float_market_cap": 800000.0,
+                        "limit_up_price": 11.11,
+                        "limit_down_price": 9.09,
+                        "is_limit_up": False,
+                        "is_limit_down": False,
+                        "is_suspended": False,
+                        "source_name": "akshare",
+                        "source_payload": {},
+                        "metadata": {"origin": "v2"},
+                    }
+                ],
+            }
+        )
+
+        snapshot = store.fetch_raw_market_snapshot(date(2026, 3, 6))
+
+        self.assertEqual(snapshot.to_dict("records"), [
+            {
+                "snapshot_date": "2026-03-06",
+                "symbol": "000001",
+                "name": "Ping An",
+                "last_price": 10.5,
+                "pct_change": 3.96,
+                "change_amount": 0.4,
+                "volume": 1000.0,
+                "turnover": 10000.0,
+                "amplitude": 6.2,
+                "turnover_rate": 5.1,
+                "pe_dynamic": 9.1,
+                "metadata": {"origin": "v2"},
+            }
+        ])
+
+    def test_fetch_raw_limit_up_pool_history_uses_raw_v2_up_events(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeClient(
+            {
+                "raw_equity_daily_limit_events": [
+                    {
+                        "trade_date": "2026-03-05",
+                        "symbol": "000001",
+                        "event_side": "up",
+                        "market": "CN_A",
+                        "name": "Ping An",
+                        "board_count": 2,
+                        "seal_amount": 8800000.0,
+                        "seal_volume": None,
+                        "turnover_rate": 5.2,
+                        "open_times": 1,
+                        "first_limit_time": "093100",
+                        "last_limit_time": "145600",
+                        "limit_reason": None,
+                        "limit_type": "pool",
+                        "source_name": "akshare",
+                        "source_payload": {},
+                        "metadata": {"origin": "v2"},
+                    },
+                    {
+                        "trade_date": "2026-03-05",
+                        "symbol": "600001",
+                        "event_side": "down",
+                        "market": "CN_A",
+                        "name": "Down Test",
+                        "board_count": None,
+                        "seal_amount": None,
+                        "seal_volume": None,
+                        "turnover_rate": 2.1,
+                        "open_times": None,
+                        "first_limit_time": None,
+                        "last_limit_time": None,
+                        "limit_reason": None,
+                        "limit_type": "threshold_proxy",
+                        "source_name": "akshare",
+                        "source_payload": {},
+                        "metadata": {"origin": "v2"},
+                    },
+                ],
+            }
+        )
+
+        history = store.fetch_raw_limit_up_pool_history(
+            date(2026, 3, 5),
+            date(2026, 3, 5),
+        )
+
+        self.assertEqual(history.to_dict("records"), [
+            {
+                "snapshot_date": "2026-03-05",
+                "symbol": "000001",
+                "name": "Ping An",
+                "board_count": 2,
+                "seal_funds": 8800000.0,
+                "turnover_rate": 5.2,
+                "first_limit_time": "093100",
+                "last_limit_time": "145600",
+                "metadata": {"origin": "v2"},
+            }
+        ])
+
+    def test_fetch_dashboard_snapshot_uses_raw_v2_quotes_for_market_breadth(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeClient(
+            {
+                "daily_indicators": [
+                    {
+                        "key": "up_limit_count",
+                        "indicator_date": "2026-03-06",
+                        "title": "Up Limit Count",
+                        "type": "up_limit_count",
+                        "value_numeric": 103.0,
+                        "value_text": "103",
+                        "delta": None,
+                        "unit": "stocks",
+                        "raw_data": {},
+                    },
+                ],
+                "daily_themes_volume": [],
+                "stock_kline_daily": [],
+                "raw_equity_daily_quotes": [
+                    {"trade_date": "2026-03-06", "symbol": "000001", "pct_change": 1.2},
+                    {"trade_date": "2026-03-06", "symbol": "000002", "pct_change": -0.4},
+                    {"trade_date": "2026-03-06", "symbol": "000003", "pct_change": 0.0},
+                ],
+            }
+        )
+
+        snapshot = store.fetch_dashboard_snapshot(lookback_days=60)
+
+        self.assertEqual(
+            snapshot["market_breadth"],
+            {"advancers": 1, "decliners": 1, "unchanged": 1},
+        )
+
     def test_fetch_dashboard_snapshot_includes_history_series(self) -> None:
         store = SupabaseStore.__new__(SupabaseStore)
         store.client = FakeClient(
@@ -197,10 +360,10 @@ class SupabaseStoreSnapshotTests(unittest.TestCase):
                         "pct_change": 4.5,
                     },
                 ],
-                "raw_market_snapshot_daily": [
-                    {"snapshot_date": "2026-03-06", "pct_change": 1.2},
-                    {"snapshot_date": "2026-03-06", "pct_change": -0.4},
-                    {"snapshot_date": "2026-03-06", "pct_change": 0.0},
+                "raw_equity_daily_quotes": [
+                    {"trade_date": "2026-03-06", "pct_change": 1.2},
+                    {"trade_date": "2026-03-06", "pct_change": -0.4},
+                    {"trade_date": "2026-03-06", "pct_change": 0.0},
                 ],
             }
         )
@@ -217,6 +380,53 @@ class SupabaseStoreSnapshotTests(unittest.TestCase):
             snapshot["market_breadth"],
             {"advancers": 1, "decliners": 1, "unchanged": 1},
         )
+
+    def test_fetch_raw_stock_kline_history_maps_from_quote_history(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeClient(
+            {
+                "raw_equity_daily_quotes": [
+                    {
+                        "trade_date": "2026-03-05",
+                        "symbol": "000001",
+                        "name": "Ping An",
+                        "open": 10.0,
+                        "high": 10.8,
+                        "low": 9.8,
+                        "close": 10.5,
+                        "volume": 1000.0,
+                        "turnover": 10000.0,
+                        "amplitude": 5.0,
+                        "pct_change": 2.0,
+                        "metadata": {"origin": "v2"},
+                    }
+                ]
+            }
+        )
+
+        history = store.fetch_raw_stock_kline_history(
+            date(2026, 3, 5),
+            date(2026, 3, 5),
+            symbols=["000001"],
+        )
+
+        self.assertEqual(history.to_dict("records"), [
+            {
+                "snapshot_date": "2026-03-05",
+                "ts": "2026-03-05T00:00:00+08:00",
+                "symbol": "000001",
+                "name": "Ping An",
+                "open": 10.0,
+                "high": 10.8,
+                "low": 9.8,
+                "close": 10.5,
+                "volume": 1000.0,
+                "turnover": 10000.0,
+                "amplitude": 5.0,
+                "pct_change": 2.0,
+                "metadata": {"origin": "v2"},
+            }
+        ])
 
     def test_upsert_raw_equity_daily_quotes_marks_limit_flags(self) -> None:
         store = SupabaseStore.__new__(SupabaseStore)
@@ -309,6 +519,38 @@ class SupabaseStoreSnapshotTests(unittest.TestCase):
         self.assertEqual(payload[0]["limit_type"], "threshold_proxy")
         self.assertEqual(payload[1]["event_side"], "up")
         self.assertEqual(payload[1]["board_count"], 2)
+
+    def test_upsert_raw_equity_quote_history_rows_writes_raw_v2_quotes(self) -> None:
+        store = SupabaseStore.__new__(SupabaseStore)
+        store.client = FakeWriteClient()
+
+        row_count = store.upsert_raw_equity_quote_history_rows(
+            [
+                {
+                    "ts": "2026-04-03T00:00:00+08:00",
+                    "symbol": "000001",
+                    "name": "Ping An",
+                    "open": 10.0,
+                    "high": 10.8,
+                    "low": 9.8,
+                    "close": 10.5,
+                    "volume": 1000.0,
+                    "turnover": 10000.0,
+                    "amplitude": 5.0,
+                    "pct_change": 2.0,
+                    "metadata": {"origin": "kline"},
+                }
+            ]
+        )
+
+        self.assertEqual(row_count, 1)
+        writes = store.client.sink["raw_equity_daily_quotes"][0]
+        payload = writes["payload"]
+        self.assertEqual(writes["on_conflict"], "trade_date,symbol")
+        self.assertEqual(payload[0]["trade_date"], "2026-04-03")
+        self.assertEqual(payload[0]["symbol"], "000001")
+        self.assertEqual(payload[0]["open"], 10.0)
+        self.assertEqual(payload[0]["source_name"], "akshare_stock_kline")
 
     def test_create_raw_ingestion_run_and_batch_persist_ids_and_rows(self) -> None:
         store = SupabaseStore.__new__(SupabaseStore)

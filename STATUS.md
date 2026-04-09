@@ -1,6 +1,6 @@
 # AlphaScope Status
 
-As of `2026-03-08`, this repository is no longer in the original editable-whiteboard shape. It is running as a read-only market dashboard backed by persisted Supabase data.
+As of `2026-04-09`, this repository is no longer in the original editable-whiteboard shape. It is running as a read-only market dashboard backed by persisted Supabase data.
 
 ## Current Product State
 
@@ -21,26 +21,37 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
 
 ## Raw Tables
 
-- `raw_market_snapshot_daily`
-- `raw_limit_up_pool_daily`
-- `raw_concept_boards_daily`
-- `raw_stock_kline_daily`
+- `raw_ingestion_runs`
+- `raw_dataset_batches`
+- `raw_source_payload_rows`
+- `raw_trade_calendar`
+- `raw_security_master`
+- `raw_equity_daily_quotes`
+- `raw_equity_daily_limit_events`
+- `raw_concept_board_daily`
+- `raw_concept_board_constituents_daily`
+- `raw_index_daily_quotes`
 
-## Raw Layer Redesign Status
+## Raw Layer Status
 
-- The current production runtime still writes the Raw V1 tables listed above and still reads them for indicator computation.
-- A Raw V2 schema has now been introduced in [`supabase/migrations/0007_raw_data_layer_v2.sql`](./supabase/migrations/0007_raw_data_layer_v2.sql) and documented in [`docs/RAW_DATA_MODEL.md`](./docs/RAW_DATA_MODEL.md).
-- Phase 1 ingestion now also writes part of Raw V2 canonical storage:
+- The runtime is now written against Raw V2 only.
+- The schema introduction lives in [`supabase/migrations/0007_raw_data_layer_v2.sql`](./supabase/migrations/0007_raw_data_layer_v2.sql).
+- The V1-to-V2 backfill plus drop step lives in [`supabase/migrations/0008_raw_v2_cutover.sql`](./supabase/migrations/0008_raw_v2_cutover.sql).
+- The production Supabase project was cut over to Raw V2 on `2026-04-09`; the legacy Raw V1 raw tables were backfilled and then dropped.
+- Runtime writes canonical Raw V2 storage for:
   - `raw_trade_calendar`
   - `raw_security_master`
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
-- Phase 1 ingestion now also writes landing/audit records for fetched daily datasets:
+  - `raw_concept_board_constituents_daily`
+  - `raw_index_daily_quotes`
+- Daily concept-board-constituent ingestion is bounded to the top 100 ranked concept boards for the day, and each board fetch runs in an isolated subprocess with a hard timeout so one stalled upstream call cannot block the whole daily job.
+- Runtime also writes landing/audit records for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
-- The runtime read path now prefers canonical Raw V2 reads for:
+- The runtime read path uses canonical Raw V2 reads for:
   - active theme universe
   - tracked equities universe
   - `market_turnover`
@@ -50,11 +61,8 @@ As of `2026-03-08`, this repository is no longer in the original editable-whiteb
   - `down_limit_count`
   - `highest_board`
   - `n_shape_limit_up_count` for current and historical limit-event inputs
-- When canonical Raw V2 rows are unavailable, the runtime falls back to deterministic Raw V1-to-V2 field mapping so serving generation stays stable during the migration.
-- Raw V2 adds:
-  - landing/audit tables for original AkShare payload preservation
-  - canonical domain-grain raw fact tables designed to support a future indicator library of roughly `100+` metrics
-- Ingestion has not yet been fully cut over to Raw V2, so the system is currently in dual-write plus partial-read transition rather than full Raw V2 operation.
+- Tracked-stock and limit-event stock history now rebuild from `raw_equity_daily_quotes`.
+- Concept board constituents remain best-effort because the upstream AkShare constituent endpoint can intermittently disconnect or stall.
 
 ## Serving Tables
 
@@ -88,6 +96,29 @@ Verified locally on `2026-03-08`:
 
 That warning state is expected on a Sunday. The system correctly backfilled the latest trading day instead of writing a non-trading-day snapshot.
 
+## Verified Remote Raw Snapshot
+
+Verified against the production Supabase project on `2026-04-09`:
+
+- Raw V1 raw tables are gone:
+  - `raw_market_snapshot_daily`
+  - `raw_limit_up_pool_daily`
+  - `raw_concept_boards_daily`
+  - `raw_stock_kline_daily`
+- Raw V2 / landing counts:
+  - `raw_ingestion_runs`: `105`
+  - `raw_dataset_batches`: `105`
+  - `raw_source_payload_rows`: `164912`
+  - `raw_trade_calendar`: `37`
+  - `raw_security_master`: `11335`
+  - `raw_equity_daily_quotes`: `127804`
+  - `raw_equity_daily_limit_events`: `1219`
+  - `raw_concept_board_daily`: `11224`
+  - `raw_index_daily_quotes`: `6`
+  - `raw_concept_board_constituents_daily`: `0`
+
+The remaining zero-count table is still `raw_concept_board_constituents_daily`. Its upstream source remains the slowest AkShare dependency, so that dataset is still treated as best-effort even after the runtime was bounded with per-board subprocess timeouts.
+
 ## Current UI State
 
 - The dashboard includes:
@@ -115,4 +146,4 @@ That warning state is expected on a Sunday. The system correctly backfilled the 
 - Add a historical ingestion runs page or endpoint, not only the latest run summary.
 - Normalize tracked stock names in the serving layer.
 - Add stronger source-level observability for AkShare latency and fallback usage.
-- Expand Raw V2 beyond event/quote/board facts by introducing canonical replacements for the remaining Raw V1-only stock K-line history path.
+- Stabilize concept-board-constituent ingestion with stronger retry and fallback handling.

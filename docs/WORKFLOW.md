@@ -1,16 +1,23 @@
 # Workflow
 
 ## Purpose
-Define the repeatable engineering workflow for this project.
+Capture the preferred engineering workflow for this project, with extra emphasis on recurring pitfalls, operator habits, and agent guidance that help work go smoothly.
 
 ## When To Update
 - Commands, CI checks, release flow, or environments change.
+- A recurring mistake, debugging pattern, or operational lesson should be written down for future agents.
 
 ## Minimum Sections
 - Local Development
+- Working Heuristics
 - Quality Gates
 - Release Process
 - Incident/Hotfix Path
+
+## How To Read This Doc
+- Treat this document as the project's maintained working guidance, not as a claim that every safeguard is enforced automatically by tooling.
+- Prefer the documented workflow unless there is a deliberate reason to diverge.
+- When you hit a pitfall that costs real time, add the lesson here if it is likely to recur.
 
 ## Local Development
 ```bash
@@ -56,6 +63,15 @@ Startup behavior:
 - Before the final scheduled run of the day, startup catch-up only requires snapshots through the previous trading day.
 - Embedded scheduler is intended for long-running deployments. On Vercel, disable embedded scheduling and use the backend project's Vercel Cron Job instead.
 
+## Working Heuristics
+- Read `docs/PRD.md` before changing product shape, user-facing behavior, or feature scope.
+- Read `docs/RAW_DATA_MODEL.md` before changing raw tables, storage grain, or ingestion-to-raw mappings.
+- Do not treat the frontend as the source of truth for market logic, indicator logic, universe policy, or fetch orchestration.
+- For AkShare schema drift, patch normalization in ingestion/provider code before touching indicator business logic.
+- When a fetch or dashboard bug looks data-related, inspect persisted raw and serving data before rewriting computation code.
+- Keep changes traceable: if a code change alters architecture, workflow, or storage contracts, update the matching docs in the same change.
+- Use `STATUS.md` for the latest verified runtime facts and `TROUBLESHOOTING.md` for step-by-step incident response instead of recreating those notes ad hoc.
+
 ## Deployment
 - Vercel monorepo setup should use two projects from the same repository:
   - frontend project deployment path: repository root `.`, with project root directory `apps/web`
@@ -71,13 +87,22 @@ Startup behavior:
 ## Git Rules
 - Never push directly to `main`.
 - Create a feature branch for every change set.
+- Treat a change as an important milestone when it changes any of these repo facts:
+  - database schema, table grain, or migration state
+  - indicator logic, universe policy, or any computation output
+  - fetch/scheduler/backfill/retry/degrade behavior
+  - deployment shape, environment contract, or runtime entrypoint
+  - production data state through migration, backfill, cutover, or manual repair
+  - completion of a separately verifiable feature slice or refactor stage
 - Run the relevant verification commands before push: at minimum `pnpm test`, `pnpm typecheck`, and `pnpm build` for major changes.
-- Update [`../CHANGELOG.md`](../CHANGELOG.md) whenever a major product, architecture, deployment, pipeline, or customer-facing UX change is completed, and use an exact ISO 8601 timestamp with timezone offset in the entry header.
+- Every important milestone must end with `verify -> commit -> push -> update CHANGELOG`; if the milestone changes current runtime state, also update [`../STATUS.md`](../STATUS.md).
+- Use the same important-milestone definition for both Git maintenance and `CHANGELOG.md`; do not create a second looser or stricter threshold for changelog entries.
 - Push every major completed change set to the remote branch immediately after verification.
 - After each important milestone, make sure the local branch, local commits, and remote tracking branch are in sync before stopping work.
 - Merge to `main` only through a reviewed pull request.
 
 ## Quality Gates
+- Prefer these checks as the default pre-push verification path; some are conventions and operator expectations, not necessarily fully enforced CI gates.
 - Run `pnpm lint`.
 - Run `pnpm typecheck`.
 - Run `pnpm test`.

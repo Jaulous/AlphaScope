@@ -3,6 +3,12 @@
 ## Purpose
 Define a raw-layer architecture that can support a large future indicator library without repeatedly reshaping storage around a handful of current metrics.
 
+## When To Update
+- A raw table is added, removed, renamed, or has its grain changed.
+- Ingestion starts preserving a new source payload shape or stops writing an old one.
+- Runtime reads switch to a different canonical raw table or storage contract.
+- A migration changes the Raw V2 schema, cutover path, or backfill assumptions.
+
 ## Why The Current Raw Layer Is Not Enough
 - The current raw layer only stores four handpicked datasets: market snapshot, limit-up pool, concept boards, and a partial stock K-line subset.
 - `raw_stock_kline_daily` is not a true market-wide raw history table. It only backfills a small tracked-symbol subset chosen by the current dashboard universe.
@@ -175,30 +181,31 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
 
 ## Migration Strategy
 ### Phase 1
-- Add Raw V2 tables without breaking the current runtime.
-- Keep current `raw_*_daily` tables in place so production serving stays stable.
+- Introduce Raw V2 tables and keep Raw V1 stable while the code path is being migrated.
 
 ### Phase 2
-- Rewrite ingestion to write both landing-layer batches and canonical raw facts.
-- Expand stock daily ingestion from tracked-symbol subset to full-market daily quote storage.
+- Move ingestion and runtime reads onto Raw V2 canonical tables.
+- Replace the Raw V1 stock-kline cache path with Raw V2 quote-history reconstruction.
 
 ### Phase 3
-- Move indicator implementations to depend on Raw V2 canonical tables.
-- Keep old raw tables only as transitional compatibility views or deprecate them.
+- Backfill stored Raw V1 data into Raw V2 landing/audit plus canonical tables.
+- Drop the Raw V1 raw tables after the backfill is complete.
 
-## Transitional Reality
-- Current production code still reads Raw V1 for indicator computation and serving.
-- Phase 1 runtime now also writes part of Raw V2 canonical storage:
+## Current Runtime Reality
+- The runtime writes Raw V2 canonical storage for:
   - `raw_trade_calendar`
   - `raw_security_master`
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
-- Phase 1 runtime now also writes landing/audit records for fetched daily datasets:
+  - `raw_concept_board_constituents_daily`
+  - `raw_index_daily_quotes`
+- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards and each board fetch is isolated behind a hard timeout so stalled upstream requests do not block the whole daily run.
+- The runtime also writes landing/audit records for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
-- The runtime read path now prefers canonical Raw V2 reads for:
+- The runtime reads canonical Raw V2 tables for:
   - active theme universe
   - tracked equities universe
   - `market_turnover`
@@ -206,8 +213,10 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
   - `active_capital_ratio`
   - `up_limit_count`
   - `down_limit_count`
-- `highest_board`
-- `n_shape_limit_up_count` for current and historical limit-event inputs
-- The runtime currently reads canonical Raw V2 rows from Supabase when available and falls back to deterministic Raw V1-to-V2 field mapping when they are missing.
-- The remaining canonical tables are not yet populated by the runtime.
-- Raw V2 is now the active schema direction and the preferred runtime read path for current indicators, but not yet the sole engine input because stock K-line history still comes through the transitional path.
+  - `highest_board`
+  - `n_shape_limit_up_count` for current and historical limit-event inputs
+- Raw-source reuse reads canonical Raw V2 mappings for `market_snapshot`, `limit_up_pool`, historical limit-up-pool reads, and `concept_boards`.
+- Dashboard breadth reads canonical Raw V2 quote rows.
+- Stock-kline history is reconstructed from Raw V2 quote history instead of a dedicated Raw V1 table.
+- `supabase/migrations/0008_raw_v2_cutover.sql` is the cutover step that preserves V1 data by backfilling Raw V2 landing/audit and canonical tables before dropping the V1 tables.
+- The production Supabase project was cut over to Raw V2 on `2026-04-09`; the legacy Raw V1 raw tables no longer exist there.

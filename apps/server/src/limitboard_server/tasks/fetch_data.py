@@ -19,6 +19,7 @@ SourceFetcher = Callable[[], FetchArtifact]
 RawReader = Callable[[], pd.DataFrame]
 
 _FETCH_RETRY_DELAYS = (1.0, 3.0, 8.0)
+_CONCEPT_BOARD_CONSTITUENT_FETCH_LIMIT = 100
 
 
 def run_daily_fetch(
@@ -51,10 +52,14 @@ def run_daily_fetch(
             "stock_kline_count": 0,
             "persisted": False,
             "warnings": ["Scheduler skipped because today is not a trading day."],
-            "raw_market_snapshot_count": 0,
-            "raw_limit_up_pool_count": 0,
-            "raw_concept_board_count": 0,
-            "raw_stock_kline_count": 0,
+            "raw_trade_calendar_count": 0,
+            "raw_security_master_count": 0,
+            "raw_equity_quote_count": 0,
+            "raw_limit_event_count": 0,
+            "raw_board_daily_count": 0,
+            "raw_equity_quote_history_count": 0,
+            "raw_board_constituent_count": 0,
+            "raw_index_quote_count": 0,
         }
         store.record_fetch_run(
             trigger=trigger,
@@ -100,18 +105,17 @@ def run_daily_fetch(
 
     source_statuses: dict[str, Any] = {}
     raw_counts: dict[str, int] = {
-        "raw_market_snapshot_count": 0,
-        "raw_limit_up_pool_count": 0,
-        "raw_concept_board_count": 0,
-        "raw_stock_kline_count": 0,
-        "raw_v2_trade_calendar_count": 0,
-        "raw_v2_security_master_count": 0,
-        "raw_v2_equity_quote_count": 0,
-        "raw_v2_limit_event_count": 0,
-        "raw_v2_board_daily_count": 0,
+        "raw_trade_calendar_count": 0,
+        "raw_security_master_count": 0,
+        "raw_equity_quote_count": 0,
+        "raw_limit_event_count": 0,
+        "raw_board_daily_count": 0,
+        "raw_equity_quote_history_count": 0,
+        "raw_board_constituent_count": 0,
+        "raw_index_quote_count": 0,
     }
 
-    market_snapshot, market_fetched, market_artifact = _fetch_source_with_reuse(
+    market_snapshot, _, _ = _fetch_source_with_reuse(
         name="market_snapshot",
         fetcher=engine.provider.fetch_market_snapshot_artifact,
         read_existing=lambda: store.fetch_raw_market_snapshot(as_of),
@@ -121,13 +125,9 @@ def run_daily_fetch(
         source_statuses=source_statuses,
         warnings=warnings,
     )
-    if market_fetched:
-        raw_counts["raw_market_snapshot_count"] = store.upsert_raw_market_snapshot(
-            as_of, market_snapshot
-        )
-    raw_market_snapshot = store.fetch_raw_market_snapshot(as_of)
+    raw_market_snapshot = market_snapshot
 
-    limit_up_pool, limit_up_fetched, limit_up_artifact = _fetch_source_with_reuse(
+    limit_up_pool, _, _ = _fetch_source_with_reuse(
         name="limit_up_pool",
         fetcher=lambda: engine.provider.fetch_limit_up_pool_artifact(as_of),
         read_existing=lambda: store.fetch_raw_limit_up_pool(as_of),
@@ -137,13 +137,9 @@ def run_daily_fetch(
         source_statuses=source_statuses,
         warnings=warnings,
     )
-    if limit_up_fetched:
-        raw_counts["raw_limit_up_pool_count"] = store.upsert_raw_limit_up_pool(
-            as_of, limit_up_pool
-        )
-    raw_limit_up_pool = store.fetch_raw_limit_up_pool(as_of)
+    raw_limit_up_pool = limit_up_pool
 
-    concept_boards, concept_fetched, concept_artifact = _fetch_source_with_reuse(
+    concept_boards, _, _ = _fetch_source_with_reuse(
         name="concept_boards",
         fetcher=engine.provider.fetch_concept_board_snapshot_artifact,
         read_existing=lambda: store.fetch_raw_concept_boards(as_of),
@@ -153,15 +149,12 @@ def run_daily_fetch(
         source_statuses=source_statuses,
         warnings=warnings,
     )
-    if concept_fetched:
-        raw_counts["raw_concept_board_count"] = store.upsert_raw_concept_boards(
-            as_of, concept_boards
-        )
-    raw_concept_boards = store.fetch_raw_concept_boards(as_of)
+    raw_concept_boards = concept_boards
 
     _persist_raw_v2_extensions(
         store=store,
         engine=engine,
+        trigger=trigger,
         as_of=as_of,
         market_snapshot=raw_market_snapshot,
         limit_up_pool=raw_limit_up_pool,
@@ -312,18 +305,20 @@ def run_daily_fetch(
         )
 
     stock_kline_errors = tracked_stock_kline_errors + limit_up_pool_stock_kline_errors
-    raw_counts["raw_stock_kline_count"] = store.upsert_raw_stock_kline_rows(
+    raw_counts["raw_equity_quote_history_count"] = (
+        store.upsert_raw_equity_quote_history_rows(
         tracked_stock_kline_rows + limit_up_pool_stock_kline_rows
+        )
     )
-    source_statuses["stock_kline"] = {
+    source_statuses["equity_quote_history"] = {
         "status": "fetched" if not stock_kline_errors else "partial",
-        "row_count": raw_counts["raw_stock_kline_count"],
+        "row_count": raw_counts["raw_equity_quote_history_count"],
         "requested_symbols": len(set(tracked_symbols).union(limit_up_pool_symbols)),
     }
     if stock_kline_errors:
-        source_statuses["stock_kline"]["errors"] = stock_kline_errors[:20]
+        source_statuses["equity_quote_history"]["errors"] = stock_kline_errors[:20]
         warnings.append(
-            "Some stock K-line fetches failed. Persisted indicators may rely on "
+            "Some stock K-line fetches failed. Raw V2 quote history may rely on "
             "previously stored rows for the affected symbols."
         )
 
@@ -363,8 +358,8 @@ def run_daily_fetch(
                 set(indicator_stock_symbols) - available_symbols
             )
     if missing_indicator_stock_symbols:
-        source_statuses["stock_kline"]["status"] = "partial"
-        source_statuses["stock_kline"]["missing_symbols"] = (
+        source_statuses["equity_quote_history"]["status"] = "partial"
+        source_statuses["equity_quote_history"]["missing_symbols"] = (
             missing_indicator_stock_symbols[:20]
         )
         warnings.append(
@@ -565,6 +560,7 @@ def _persist_raw_v2_extensions(
     *,
     store: SupabaseStore,
     engine: QuantEngine,
+    trigger: str,
     as_of: date,
     market_snapshot: pd.DataFrame,
     limit_up_pool: pd.DataFrame,
@@ -574,35 +570,35 @@ def _persist_raw_v2_extensions(
     raw_counts: dict[str, int],
 ) -> None:
     try:
-        raw_counts["raw_v2_trade_calendar_count"] = store.upsert_raw_trade_calendar(
+        raw_counts["raw_trade_calendar_count"] = store.upsert_raw_trade_calendar(
             engine.provider.trade_dates()
         )
-        raw_counts["raw_v2_security_master_count"] = store.upsert_raw_security_master(
+        raw_counts["raw_security_master_count"] = store.upsert_raw_security_master(
             market_snapshot
         )
-        raw_counts["raw_v2_equity_quote_count"] = store.upsert_raw_equity_daily_quotes(
+        raw_counts["raw_equity_quote_count"] = store.upsert_raw_equity_daily_quotes(
             as_of,
             market_snapshot,
             limit_up_pool=limit_up_pool,
         )
-        raw_counts["raw_v2_limit_event_count"] = (
+        raw_counts["raw_limit_event_count"] = (
             store.upsert_raw_equity_daily_limit_events(
                 as_of,
                 limit_up_pool=limit_up_pool,
                 market_snapshot=market_snapshot,
             )
         )
-        raw_counts["raw_v2_board_daily_count"] = store.upsert_raw_concept_board_daily(
+        raw_counts["raw_board_daily_count"] = store.upsert_raw_concept_board_daily(
             as_of,
             concept_boards,
         )
         source_statuses["raw_v2"] = {
             "status": "persisted",
-            "trade_calendar_count": raw_counts["raw_v2_trade_calendar_count"],
-            "security_master_count": raw_counts["raw_v2_security_master_count"],
-            "equity_quote_count": raw_counts["raw_v2_equity_quote_count"],
-            "limit_event_count": raw_counts["raw_v2_limit_event_count"],
-            "board_daily_count": raw_counts["raw_v2_board_daily_count"],
+            "trade_calendar_count": raw_counts["raw_trade_calendar_count"],
+            "security_master_count": raw_counts["raw_security_master_count"],
+            "equity_quote_count": raw_counts["raw_equity_quote_count"],
+            "limit_event_count": raw_counts["raw_limit_event_count"],
+            "board_daily_count": raw_counts["raw_board_daily_count"],
         }
     except Exception as exc:
         source_statuses["raw_v2"] = {
@@ -610,8 +606,95 @@ def _persist_raw_v2_extensions(
             "error": str(exc),
         }
         warnings.append(
-            "Raw V2 persistence failed. Raw V1 and serving writes continued, "
-            "but the new canonical raw tables may be incomplete."
+            "Raw V2 canonical persistence failed, but serving writes continued."
+        )
+
+    if not concept_boards.empty:
+        ranked_boards = concept_boards
+        if "rank" in ranked_boards.columns:
+            ranked_boards = ranked_boards.sort_values("rank", na_position="last")
+        board_names_series = (
+            ranked_boards["theme_name"].dropna().astype(str).str.strip()
+        )
+        board_names_series = board_names_series[board_names_series != ""].drop_duplicates()
+        available_board_count = int(len(board_names_series.index))
+        board_names = (
+            board_names_series.head(_CONCEPT_BOARD_CONSTITUENT_FETCH_LIMIT).tolist()
+        )
+        if board_names:
+            if available_board_count > len(board_names):
+                warnings.append(
+                    "Concept board constituent fetch was limited to the top "
+                    f"{len(board_names)} ranked boards out of {available_board_count} "
+                    "to keep daily ingestion bounded."
+                )
+            started_at = datetime.now(tz=ZoneInfo("UTC"))
+            try:
+                artifact = engine.provider.fetch_concept_board_constituents_artifact(
+                    board_names
+                )
+                _record_landing_batch(
+                    store=store,
+                    trigger=trigger,
+                    dataset_key="concept_board_constituents",
+                    as_of=as_of,
+                    artifact=artifact,
+                    started_at=started_at,
+                    finished_at=datetime.now(tz=ZoneInfo("UTC")),
+                    source_statuses=source_statuses,
+                    warnings=warnings,
+                )
+                raw_counts["raw_board_constituent_count"] = (
+                    store.upsert_raw_concept_board_constituents_daily(
+                        as_of,
+                        artifact.data,
+                    )
+                )
+                source_statuses["concept_board_constituents"] = {
+                    "status": "persisted",
+                    "row_count": raw_counts["raw_board_constituent_count"],
+                    "requested_board_count": len(board_names),
+                    "available_board_count": available_board_count,
+                }
+            except Exception as exc:
+                source_statuses["concept_board_constituents"] = {
+                    "status": "write_failed",
+                    "error": str(exc),
+                    "requested_board_count": len(board_names),
+                    "available_board_count": available_board_count,
+                }
+                warnings.append(
+                    "Concept board constituent persistence failed; canonical quote/event/board writes continued."
+                )
+
+    started_at = datetime.now(tz=ZoneInfo("UTC"))
+    try:
+        artifact = engine.provider.fetch_index_daily_quotes_artifact(as_of)
+        _record_landing_batch(
+            store=store,
+            trigger=trigger,
+            dataset_key="index_daily_quotes",
+            as_of=as_of,
+            artifact=artifact,
+            started_at=started_at,
+            finished_at=datetime.now(tz=ZoneInfo("UTC")),
+            source_statuses=source_statuses,
+            warnings=warnings,
+        )
+        raw_counts["raw_index_quote_count"] = store.upsert_raw_index_daily_quotes(
+            artifact.data
+        )
+        source_statuses["index_daily_quotes"] = {
+            "status": "persisted",
+            "row_count": raw_counts["raw_index_quote_count"],
+        }
+    except Exception as exc:
+        source_statuses["index_daily_quotes"] = {
+            "status": "write_failed",
+            "error": str(exc),
+        }
+        warnings.append(
+            "Index quote persistence failed; canonical quote/event/board writes continued."
         )
 
 

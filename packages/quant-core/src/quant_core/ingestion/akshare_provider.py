@@ -3,6 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from multiprocessing import get_context
+from time import monotonic, sleep
 from typing import Any
 
 import akshare as ak
@@ -21,7 +23,39 @@ class FetchArtifact:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+_CONCEPT_BOARD_CONSTITUENT_MAX_WORKERS = 4
+_CONCEPT_BOARD_CONSTITUENT_FETCH_TIMEOUT_SECONDS = 20.0
+_CONCEPT_BOARD_CONSTITUENT_POLL_INTERVAL_SECONDS = 0.1
+
+
+def _fetch_concept_board_constituents_worker(
+    board_name: str,
+    send_conn: Any,
+) -> None:
+    try:
+        frame = ak.stock_board_concept_cons_em(symbol=board_name)
+        send_conn.send(
+            {
+                "ok": True,
+                "rows": frame.to_dict(orient="records"),
+            }
+        )
+    except Exception as exc:
+        send_conn.send({"ok": False, "error": str(exc)})
+    finally:
+        send_conn.close()
+
+
 class AkShareProvider:
+    DEFAULT_INDEX_UNIVERSE: dict[str, str] = {
+        "sh000001": "SSE Composite",
+        "sz399001": "SZSE Component",
+        "sz399006": "ChiNext",
+        "sh000300": "CSI 300",
+        "sh000905": "CSI 500",
+        "sh000852": "CSI 1000",
+    }
+
     def __init__(self, timezone: str = "Asia/Shanghai") -> None:
         self.timezone = pytz.timezone(timezone)
         self.sina_headers = {
@@ -121,6 +155,162 @@ class AkShareProvider:
             errors.append(f"stock_board_change_em: {exc}")
 
         raise RuntimeError("; ".join(errors) or "failed to fetch concept boards")
+
+    def fetch_concept_board_constituents_artifact(
+        self, board_names: list[str]
+    ) -> FetchArtifact:
+        requested = [str(name).strip() for name in board_names if str(name).strip()]
+        if not requested:
+            return FetchArtifact(
+                data=pd.DataFrame(),
+                source_name="stock_board_concept_cons_em",
+                source_endpoint="stock_board_concept_cons_em",
+                fetch_params={},
+                raw_records=[],
+                metadata={"requested_board_count": 0},
+            )
+
+        raw_frames: list[pd.DataFrame] = []
+        raw_records: list[dict[str, Any]] = []
+        errors: list[str] = []
+        ctx = get_context("spawn")
+        pending = list(requested)
+        active: dict[str, tuple[Any, Any, float]] = {}
+
+        while pending or active:
+            while pending and len(active) < _CONCEPT_BOARD_CONSTITUENT_MAX_WORKERS:
+                board_name = pending.pop(0)
+                recv_conn, send_conn = ctx.Pipe(duplex=False)
+                process = ctx.Process(
+                    target=_fetch_concept_board_constituents_worker,
+                    args=(board_name, send_conn),
+                    daemon=True,
+                )
+                process.start()
+                send_conn.close()
+                active[board_name] = (process, recv_conn, monotonic())
+
+            completed: list[str] = []
+            for board_name, (process, recv_conn, started_at) in list(active.items()):
+                if recv_conn.poll():
+                    result = recv_conn.recv()
+                    recv_conn.close()
+                    process.join(timeout=0.2)
+                    if process.is_alive():
+                        process.terminate()
+                        process.join(timeout=0.2)
+                    completed.append(board_name)
+                    if not result.get("ok"):
+                        errors.append(f"{board_name}: {result.get('error')}")
+                        continue
+                    rows = result.get("rows") or []
+                    if not rows:
+                        continue
+                    for row in rows:
+                        row["board_name"] = board_name
+                    raw_records.extend(rows)
+                    raw_frames.append(pd.DataFrame.from_records(rows))
+                    continue
+
+                if not process.is_alive():
+                    recv_conn.close()
+                    completed.append(board_name)
+                    if process.exitcode:
+                        errors.append(
+                            f"{board_name}: worker exited with code {process.exitcode}"
+                        )
+                    continue
+
+                if (
+                    monotonic() - started_at
+                    >= _CONCEPT_BOARD_CONSTITUENT_FETCH_TIMEOUT_SECONDS
+                ):
+                    recv_conn.close()
+                    process.terminate()
+                    process.join(timeout=0.5)
+                    if process.is_alive():
+                        process.kill()
+                        process.join(timeout=0.5)
+                    completed.append(board_name)
+                    errors.append(
+                        f"{board_name}: timed out after "
+                        f"{int(_CONCEPT_BOARD_CONSTITUENT_FETCH_TIMEOUT_SECONDS)}s"
+                    )
+
+            for board_name in completed:
+                active.pop(board_name, None)
+
+            if active:
+                sleep(_CONCEPT_BOARD_CONSTITUENT_POLL_INTERVAL_SECONDS)
+
+        if not raw_frames:
+            raise RuntimeError(
+                "; ".join(errors[:10]) or "failed to fetch concept board constituents"
+            )
+
+        raw_df = pd.concat(raw_frames, ignore_index=True)
+        return FetchArtifact(
+            data=self._normalize_concept_board_constituents(raw_df),
+            source_name="stock_board_concept_cons_em",
+            source_endpoint="stock_board_concept_cons_em",
+            fetch_params={"board_names": requested},
+            raw_records=raw_records,
+            metadata={
+                "requested_board_count": len(requested),
+                "succeeded_board_count": len(raw_frames),
+                "failed_board_count": len(errors),
+                "errors": errors[:20],
+            },
+        )
+
+    def fetch_index_daily_quotes_artifact(
+        self,
+        as_of: date,
+        index_universe: dict[str, str] | None = None,
+    ) -> FetchArtifact:
+        universe = index_universe or self.DEFAULT_INDEX_UNIVERSE
+        start_date = (as_of - timedelta(days=10)).strftime("%Y%m%d")
+        end_date = as_of.strftime("%Y%m%d")
+        raw_frames: list[pd.DataFrame] = []
+        raw_records: list[dict[str, Any]] = []
+        errors: list[str] = []
+
+        for index_code, index_name in universe.items():
+            try:
+                frame = ak.stock_zh_index_daily_em(
+                    symbol=index_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                if frame.empty:
+                    continue
+                frame = frame.copy()
+                frame["index_code"] = index_code
+                frame["index_name"] = index_name
+                raw_frames.append(frame)
+                raw_records.extend(frame.to_dict(orient="records"))
+            except Exception as exc:
+                errors.append(f"{index_code}: {exc}")
+
+        if not raw_frames:
+            raise RuntimeError("; ".join(errors[:10]) or "failed to fetch index quotes")
+
+        raw_df = pd.concat(raw_frames, ignore_index=True)
+        return FetchArtifact(
+            data=self._normalize_index_daily_quotes(raw_df, as_of=as_of),
+            source_name="stock_zh_index_daily_em",
+            source_endpoint="stock_zh_index_daily_em",
+            fetch_params={
+                "as_of": as_of.isoformat(),
+                "index_codes": list(universe.keys()),
+            },
+            raw_records=raw_records,
+            metadata={
+                "requested_index_count": len(universe),
+                "failed_index_count": len(errors),
+                "errors": errors[:20],
+            },
+        )
 
     def fetch_stock_kline_daily(
         self, symbol: str, start_date: date, end_date: date | None = None
@@ -303,6 +493,105 @@ class AkShareProvider:
                 "rank",
             ]
         ]
+
+    def _normalize_concept_board_constituents(self, df: pd.DataFrame) -> pd.DataFrame:
+        rename_map = {
+            "代码": "symbol",
+            "名称": "name",
+            "成交额": "turnover",
+            "涨跌幅": "pct_change",
+            "board_name": "board_name",
+        }
+        normalized = df.rename(columns=rename_map).copy()
+        for column in ("board_name", "symbol", "name", "turnover", "pct_change"):
+            if column not in normalized.columns:
+                normalized[column] = None
+        normalized["turnover"] = pd.to_numeric(
+            normalized["turnover"], errors="coerce"
+        ).fillna(0.0)
+        normalized["pct_change"] = pd.to_numeric(
+            normalized["pct_change"], errors="coerce"
+        )
+        normalized = normalized.dropna(subset=["board_name", "symbol"]).copy()
+        normalized = normalized.sort_values(
+            ["board_name", "turnover", "symbol"],
+            ascending=[True, False, True],
+        )
+        normalized["rank_in_board"] = normalized.groupby("board_name").cumcount() + 1
+        normalized["board_type"] = "concept"
+        normalized["weight"] = None
+        normalized["contribution"] = None
+        return normalized[
+            [
+                "board_type",
+                "board_name",
+                "symbol",
+                "name",
+                "rank_in_board",
+                "weight",
+                "contribution",
+            ]
+        ].copy()
+
+    def _normalize_index_daily_quotes(
+        self, df: pd.DataFrame, *, as_of: date
+    ) -> pd.DataFrame:
+        rename_map = {
+            "date": "trade_date",
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "volume": "volume",
+            "amount": "turnover",
+            "index_code": "index_code",
+            "index_name": "index_name",
+        }
+        normalized = df.rename(columns=rename_map).copy()
+        normalized["trade_date"] = pd.to_datetime(
+            normalized["trade_date"], errors="coerce"
+        ).dt.date
+        normalized = normalized.dropna(subset=["trade_date", "index_code"]).copy()
+        normalized = normalized[normalized["trade_date"] <= as_of].copy()
+        normalized = normalized.sort_values(["index_code", "trade_date"])
+        normalized["pre_close"] = normalized.groupby("index_code")["close"].shift(1)
+        normalized["change_amount"] = (
+            pd.to_numeric(normalized["close"], errors="coerce")
+            - pd.to_numeric(normalized["pre_close"], errors="coerce")
+        )
+        normalized["pct_change"] = (
+            normalized["change_amount"]
+            / pd.to_numeric(normalized["pre_close"], errors="coerce").replace(0, pd.NA)
+            * 100
+        )
+        normalized["amplitude"] = (
+            (
+                pd.to_numeric(normalized["high"], errors="coerce")
+                - pd.to_numeric(normalized["low"], errors="coerce")
+            )
+            / pd.to_numeric(normalized["pre_close"], errors="coerce").replace(0, pd.NA)
+            * 100
+        )
+        normalized = normalized.groupby("index_code", as_index=False).tail(1)
+        normalized["market"] = "CN_A"
+        return normalized[
+            [
+                "trade_date",
+                "index_code",
+                "market",
+                "index_name",
+                "open",
+                "high",
+                "low",
+                "close",
+                "pre_close",
+                "change_amount",
+                "pct_change",
+                "volume",
+                "turnover",
+                "amplitude",
+            ]
+        ].copy()
 
     def recent_market_days(self, lookback_days: int = 30) -> tuple[date, date]:
         end = self.latest_market_date()

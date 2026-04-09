@@ -21,7 +21,8 @@ Store stable reference facts needed for implementation and operations.
 - `packages/db-types/`: shared TypeScript database and API types.
 - `packages/ui/`: shared React UI primitives.
 - `supabase/migrations/`: database schema and seed migrations for raw, serving, and fetch-run tables.
-- `supabase/migrations/0007_raw_data_layer_v2.sql`: non-breaking Raw V2 schema introduction for landing/audit tables plus canonical raw fact tables.
+- `supabase/migrations/0007_raw_data_layer_v2.sql`: Raw V2 schema introduction for landing/audit tables plus canonical raw fact tables.
+- `supabase/migrations/0008_raw_v2_cutover.sql`: Raw V1-to-V2 backfill and cutover migration that transfers stored V1 raw data into Raw V2 tables and then drops the V1 tables.
 - `requirements.txt`: repository-root Python dependency manifest for the Vercel backend deployment.
 - `vercel.json`: repository-root Vercel cron and Python function bundling config.
 - `.python-version`: Vercel backend Python runtime pin.
@@ -66,12 +67,7 @@ Store stable reference facts needed for implementation and operations.
 - Next.js: frontend rendering surface.
 
 ## Raw Storage Notes
-- Raw V1 tables currently used by production ingestion:
-  - `raw_market_snapshot_daily`
-  - `raw_limit_up_pool_daily`
-  - `raw_concept_boards_daily`
-  - `raw_stock_kline_daily`
-- Raw V2 tables introduced for the next architecture phase:
+- Raw V2 tables used by runtime ingestion:
   - landing/audit:
     - `raw_ingestion_runs`
     - `raw_dataset_batches`
@@ -84,17 +80,20 @@ Store stable reference facts needed for implementation and operations.
     - `raw_concept_board_daily`
     - `raw_concept_board_constituents_daily`
     - `raw_index_daily_quotes`
-- Phase 1 runtime now writes a subset of Raw V2 canonical tables:
+- Runtime writes canonical Raw V2 tables for:
   - `raw_trade_calendar`
   - `raw_security_master`
   - `raw_equity_daily_quotes`
   - `raw_equity_daily_limit_events`
   - `raw_concept_board_daily`
-- Phase 1 runtime now also writes landing/audit rows for fetched daily datasets:
+  - `raw_concept_board_constituents_daily`
+  - `raw_index_daily_quotes`
+- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards for the target trading day so the fetch pipeline stays within an operationally safe runtime budget.
+- Runtime also writes landing/audit rows for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
   - `raw_source_payload_rows`
-- The runtime read path now prefers canonical Raw V2 reads for:
+- The runtime read path uses canonical Raw V2 reads for:
   - `active_themes`
   - `tracked_equities`
   - `market_turnover`
@@ -104,9 +103,15 @@ Store stable reference facts needed for implementation and operations.
   - `down_limit_count`
   - `highest_board`
   - `n_shape_limit_up_count` for current and historical limit-event inputs
-- The runtime reads Raw V2 rows back from Supabase when available and falls back to deterministic Raw V1 field mapping when those rows are missing.
-- The remaining canonical tables are schema-ready but not yet populated by the runtime.
-- The engine still depends on the transitional stock K-line history path today; Raw V2 is not yet the sole runtime input layer.
+- Raw-source reuse reads canonical Raw V2 mappings for:
+  - `market_snapshot`
+  - `limit_up_pool`
+  - historical `limit_up_pool`
+  - `concept_boards`
+- stock K-line history is reconstructed from `raw_equity_daily_quotes`.
+- Dashboard breadth reads from `raw_equity_daily_quotes`.
+- The cutover migration backfills V1 raw data into Raw V2 landing/audit and canonical tables before dropping the V1 tables.
+- The production Supabase project was cut over to Raw V2 on `2026-04-09`; legacy Raw V1 tables were dropped after the backfill.
 
 ## Glossary
 - `raw_* tables`: persisted source-of-truth ingestion tables used to rebuild market context.

@@ -61,112 +61,26 @@ class SupabaseStore:
         return pd.DataFrame(response.data or [])
 
     def fetch_raw_market_snapshot(self, snapshot_date: date) -> pd.DataFrame:
-        response = (
-            self.client.table("raw_market_snapshot_daily")
-            .select(
-                "snapshot_date,symbol,name,last_price,pct_change,change_amount,volume,turnover,amplitude,turnover_rate,pe_dynamic,metadata"
-            )
-            .eq("snapshot_date", snapshot_date.isoformat())
-            .order("symbol", desc=False)
-            .execute()
-        )
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "symbol",
-                "name",
-                "last_price",
-                "pct_change",
-                "change_amount",
-                "volume",
-                "turnover",
-                "amplitude",
-                "turnover_rate",
-                "pe_dynamic",
-                "metadata",
-            ],
-        )
+        quotes_v2 = self.fetch_raw_equity_daily_quotes_v2(snapshot_date)
+        return self._map_equity_daily_quotes_to_market_snapshot(quotes_v2)
 
     def fetch_raw_limit_up_pool(self, snapshot_date: date) -> pd.DataFrame:
-        response = (
-            self.client.table("raw_limit_up_pool_daily")
-            .select(
-                "snapshot_date,symbol,name,board_count,seal_funds,turnover_rate,first_limit_time,last_limit_time,metadata"
-            )
-            .eq("snapshot_date", snapshot_date.isoformat())
-            .order("symbol", desc=False)
-            .execute()
-        )
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "symbol",
-                "name",
-                "board_count",
-                "seal_funds",
-                "turnover_rate",
-                "first_limit_time",
-                "last_limit_time",
-                "metadata",
-            ],
-        )
+        limit_events_v2 = self.fetch_raw_equity_daily_limit_events_v2(snapshot_date)
+        return self._map_limit_events_to_limit_up_pool(limit_events_v2)
 
     def fetch_raw_limit_up_pool_history(
         self, start_date: date, end_date: date
     ) -> pd.DataFrame:
-        response = (
-            self.client.table("raw_limit_up_pool_daily")
-            .select(
-                "snapshot_date,symbol,name,board_count,seal_funds,turnover_rate,first_limit_time,last_limit_time,metadata"
-            )
-            .gte("snapshot_date", start_date.isoformat())
-            .lte("snapshot_date", end_date.isoformat())
-            .order("snapshot_date", desc=False)
-            .order("symbol", desc=False)
-            .execute()
+        limit_events_v2 = self.fetch_raw_equity_daily_limit_events_history_v2(
+            start_date,
+            end_date,
+            event_side="up",
         )
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "symbol",
-                "name",
-                "board_count",
-                "seal_funds",
-                "turnover_rate",
-                "first_limit_time",
-                "last_limit_time",
-                "metadata",
-            ],
-        )
+        return self._map_limit_events_to_limit_up_pool(limit_events_v2)
 
     def fetch_raw_concept_boards(self, snapshot_date: date) -> pd.DataFrame:
-        response = (
-            self.client.table("raw_concept_boards_daily")
-            .select(
-                "snapshot_date,theme_name,turnover,pct_change,market_cap,advancers,decliners,leader,rank,metadata"
-            )
-            .eq("snapshot_date", snapshot_date.isoformat())
-            .order("rank", desc=False)
-            .execute()
-        )
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "theme_name",
-                "turnover",
-                "pct_change",
-                "market_cap",
-                "advancers",
-                "decliners",
-                "leader",
-                "rank",
-                "metadata",
-            ],
-        )
+        concept_board_daily_v2 = self.fetch_raw_concept_board_daily_v2(snapshot_date)
+        return self._map_concept_board_daily_to_concept_boards(concept_board_daily_v2)
 
     def fetch_raw_equity_daily_quotes_v2(self, trade_date: date) -> pd.DataFrame:
         response = (
@@ -178,6 +92,61 @@ class SupabaseStore:
             .order("symbol", desc=False)
             .execute()
         )
+        return pd.DataFrame(
+            response.data or [],
+            columns=[
+                "trade_date",
+                "symbol",
+                "market",
+                "exchange",
+                "name",
+                "open",
+                "high",
+                "low",
+                "close",
+                "pre_close",
+                "change_amount",
+                "pct_change",
+                "volume",
+                "turnover",
+                "turnover_rate",
+                "amplitude",
+                "volume_ratio",
+                "pe_dynamic",
+                "pb",
+                "total_market_cap",
+                "float_market_cap",
+                "limit_up_price",
+                "limit_down_price",
+                "is_limit_up",
+                "is_limit_down",
+                "is_suspended",
+                "source_name",
+                "source_payload",
+                "metadata",
+            ],
+        )
+
+    def fetch_raw_equity_daily_quotes_history_v2(
+        self,
+        start_date: date,
+        end_date: date,
+        *,
+        symbols: list[str] | None = None,
+    ) -> pd.DataFrame:
+        query = (
+            self.client.table("raw_equity_daily_quotes")
+            .select(
+                "trade_date,symbol,market,exchange,name,open,high,low,close,pre_close,change_amount,pct_change,volume,turnover,turnover_rate,amplitude,volume_ratio,pe_dynamic,pb,total_market_cap,float_market_cap,limit_up_price,limit_down_price,is_limit_up,is_limit_down,is_suspended,source_name,source_payload,metadata"
+            )
+            .gte("trade_date", start_date.isoformat())
+            .lte("trade_date", end_date.isoformat())
+            .order("trade_date", desc=False)
+            .order("symbol", desc=False)
+        )
+        if symbols:
+            query = query.in_("symbol", symbols)
+        response = query.execute()
         return pd.DataFrame(
             response.data or [],
             columns=[
@@ -324,35 +293,12 @@ class SupabaseStore:
     def fetch_raw_stock_kline(
         self, snapshot_date: date, symbols: list[str] | None = None
     ) -> pd.DataFrame:
-        query = (
-            self.client.table("raw_stock_kline_daily")
-            .select(
-                "snapshot_date,ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change,metadata"
-            )
-            .eq("snapshot_date", snapshot_date.isoformat())
-            .order("ts", desc=False)
+        quotes = self.fetch_raw_equity_daily_quotes_history_v2(
+            snapshot_date,
+            snapshot_date,
+            symbols=symbols,
         )
-        if symbols:
-            query = query.in_("symbol", symbols)
-        response = query.execute()
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "ts",
-                "symbol",
-                "name",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-                "turnover",
-                "amplitude",
-                "pct_change",
-                "metadata",
-            ],
-        )
+        return self._map_equity_daily_quotes_to_stock_kline(quotes)
 
     def fetch_raw_stock_kline_history(
         self,
@@ -360,36 +306,12 @@ class SupabaseStore:
         end_date: date,
         symbols: list[str] | None = None,
     ) -> pd.DataFrame:
-        query = (
-            self.client.table("raw_stock_kline_daily")
-            .select(
-                "snapshot_date,ts,symbol,name,open,high,low,close,volume,turnover,amplitude,pct_change,metadata"
-            )
-            .gte("snapshot_date", start_date.isoformat())
-            .lte("snapshot_date", end_date.isoformat())
-            .order("ts", desc=False)
+        quotes = self.fetch_raw_equity_daily_quotes_history_v2(
+            start_date,
+            end_date,
+            symbols=symbols,
         )
-        if symbols:
-            query = query.in_("symbol", symbols)
-        response = query.execute()
-        return pd.DataFrame(
-            response.data or [],
-            columns=[
-                "snapshot_date",
-                "ts",
-                "symbol",
-                "name",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-                "turnover",
-                "amplitude",
-                "pct_change",
-                "metadata",
-            ],
-        )
+        return self._map_equity_daily_quotes_to_stock_kline(quotes)
 
     def fetch_theme_history(self, lookback_days: int = 60) -> pd.DataFrame:
         since = (date.today() - timedelta(days=lookback_days)).isoformat()
@@ -630,116 +552,48 @@ class SupabaseStore:
             payload, on_conflict="key,indicator_date"
         ).execute()
 
-    def upsert_raw_market_snapshot(self, as_of: date, df: pd.DataFrame) -> int:
-        if df.empty:
-            return 0
-        payload = []
-        for _, row in df.iterrows():
-            payload.append(
-                {
-                    "snapshot_date": as_of.isoformat(),
-                    "symbol": str(row.get("symbol")),
-                    "name": row.get("name"),
-                    "last_price": row.get("last_price"),
-                    "pct_change": row.get("pct_change"),
-                    "change_amount": row.get("change_amount"),
-                    "volume": row.get("volume"),
-                    "turnover": row.get("turnover"),
-                    "amplitude": row.get("amplitude"),
-                    "turnover_rate": row.get("turnover_rate"),
-                    "pe_dynamic": row.get("pe_dynamic"),
-                    "metadata": {},
-                }
-            )
-        payload = self._sanitize_rows(
-            self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
-        )
-        self.client.table("raw_market_snapshot_daily").upsert(
-            payload, on_conflict="snapshot_date,symbol"
-        ).execute()
-        return len(payload)
-
-    def upsert_raw_limit_up_pool(self, as_of: date, df: pd.DataFrame) -> int:
-        if df.empty:
-            return 0
-        payload = []
-        for _, row in df.iterrows():
-            payload.append(
-                {
-                    "snapshot_date": as_of.isoformat(),
-                    "symbol": str(row.get("symbol")),
-                    "name": row.get("name"),
-                    "board_count": row.get("board_count"),
-                    "seal_funds": row.get("seal_funds"),
-                    "turnover_rate": row.get("turnover_rate"),
-                    "first_limit_time": row.get("first_limit_time"),
-                    "last_limit_time": row.get("last_limit_time"),
-                    "metadata": {},
-                }
-            )
-        payload = self._sanitize_rows(
-            self._dedupe_payload(payload, keys=["snapshot_date", "symbol"])
-        )
-        self.client.table("raw_limit_up_pool_daily").upsert(
-            payload, on_conflict="snapshot_date,symbol"
-        ).execute()
-        return len(payload)
-
-    def upsert_raw_concept_boards(self, as_of: date, df: pd.DataFrame) -> int:
-        if df.empty:
-            return 0
-        payload = []
-        for _, row in df.iterrows():
-            payload.append(
-                {
-                    "snapshot_date": as_of.isoformat(),
-                    "theme_name": row.get("theme_name"),
-                    "turnover": row.get("turnover"),
-                    "pct_change": row.get("pct_change"),
-                    "market_cap": row.get("market_cap"),
-                    "advancers": row.get("advancers"),
-                    "decliners": row.get("decliners"),
-                    "leader": row.get("leader"),
-                    "rank": row.get("rank"),
-                    "metadata": {},
-                }
-            )
-        payload = self._sanitize_rows(
-            self._dedupe_payload(payload, keys=["snapshot_date", "theme_name"])
-        )
-        self.client.table("raw_concept_boards_daily").upsert(
-            payload, on_conflict="snapshot_date,theme_name"
-        ).execute()
-        return len(payload)
-
-    def upsert_raw_stock_kline_rows(self, rows: list[dict[str, Any]]) -> int:
+    def upsert_raw_equity_quote_history_rows(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        market: str = "CN_A",
+        source_name: str = "akshare_stock_kline",
+    ) -> int:
         if not rows:
             return 0
         payload = []
         for row in rows:
-            snapshot_date = str(row["ts"])[:10]
+            symbol = str(row.get("symbol") or "").strip()
+            ts = row.get("ts")
+            if not symbol or not ts:
+                continue
+            trade_date = str(ts)[:10]
             payload.append(
-                {
-                    "snapshot_date": snapshot_date,
-                    "ts": row["ts"],
-                    "symbol": row["symbol"],
-                    "name": row.get("name"),
-                    "open": row.get("open"),
-                    "high": row.get("high"),
-                    "low": row.get("low"),
-                    "close": row.get("close"),
-                    "volume": row.get("volume"),
-                    "turnover": row.get("turnover"),
-                    "amplitude": row.get("amplitude"),
-                    "pct_change": row.get("pct_change"),
-                    "metadata": row.get("metadata", {}),
-                }
+                self._compact_row(
+                    {
+                        "trade_date": trade_date,
+                        "symbol": symbol,
+                        "market": market,
+                        "exchange": self._infer_exchange(symbol),
+                        "name": row.get("name"),
+                        "open": row.get("open"),
+                        "high": row.get("high"),
+                        "low": row.get("low"),
+                        "close": row.get("close"),
+                        "volume": row.get("volume"),
+                        "turnover": row.get("turnover"),
+                        "amplitude": row.get("amplitude"),
+                        "pct_change": row.get("pct_change"),
+                        "source_name": source_name,
+                        "metadata": row.get("metadata", {}),
+                    }
+                )
             )
         payload = self._sanitize_rows(
-            self._dedupe_payload(payload, keys=["ts", "symbol"])
+            self._dedupe_payload(payload, keys=["trade_date", "symbol"])
         )
-        self.client.table("raw_stock_kline_daily").upsert(
-            payload, on_conflict="ts,symbol"
+        self.client.table("raw_equity_daily_quotes").upsert(
+            payload, on_conflict="trade_date,symbol"
         ).execute()
         return len(payload)
 
@@ -1001,6 +855,93 @@ class SupabaseStore:
         )
         self.client.table("raw_concept_board_daily").upsert(
             payload, on_conflict="trade_date,board_type,board_name"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_concept_board_constituents_daily(
+        self,
+        as_of: date,
+        constituents: pd.DataFrame,
+        *,
+        board_type: str = "concept",
+        market: str = "CN_A",
+        source_name: str = "akshare",
+    ) -> int:
+        if constituents.empty:
+            return 0
+        payload = []
+        for _, row in constituents.iterrows():
+            board_name = str(row.get("board_name") or "").strip()
+            symbol = str(row.get("symbol") or "").strip()
+            if not board_name or not symbol:
+                continue
+            payload.append(
+                {
+                    "trade_date": as_of.isoformat(),
+                    "board_type": board_type,
+                    "board_name": board_name,
+                    "symbol": symbol,
+                    "market": market,
+                    "name": row.get("name"),
+                    "rank_in_board": self._safe_int(row.get("rank_in_board")),
+                    "weight": row.get("weight"),
+                    "contribution": row.get("contribution"),
+                    "source_name": source_name,
+                    "source_payload": {},
+                    "metadata": {},
+                }
+            )
+        payload = self._sanitize_rows(
+            self._dedupe_payload(
+                payload,
+                keys=["trade_date", "board_type", "board_name", "symbol"],
+            )
+        )
+        self.client.table("raw_concept_board_constituents_daily").upsert(
+            payload, on_conflict="trade_date,board_type,board_name,symbol"
+        ).execute()
+        return len(payload)
+
+    def upsert_raw_index_daily_quotes(
+        self,
+        index_quotes: pd.DataFrame,
+        *,
+        source_name: str = "akshare",
+    ) -> int:
+        if index_quotes.empty:
+            return 0
+        payload = []
+        for _, row in index_quotes.iterrows():
+            trade_date = row.get("trade_date")
+            index_code = str(row.get("index_code") or "").strip()
+            if not trade_date or not index_code:
+                continue
+            payload.append(
+                {
+                    "trade_date": str(trade_date)[:10],
+                    "index_code": index_code,
+                    "market": row.get("market") or "CN_A",
+                    "index_name": row.get("index_name"),
+                    "open": row.get("open"),
+                    "high": row.get("high"),
+                    "low": row.get("low"),
+                    "close": row.get("close"),
+                    "pre_close": row.get("pre_close"),
+                    "change_amount": row.get("change_amount"),
+                    "pct_change": row.get("pct_change"),
+                    "volume": row.get("volume"),
+                    "turnover": row.get("turnover"),
+                    "amplitude": row.get("amplitude"),
+                    "source_name": source_name,
+                    "source_payload": {},
+                    "metadata": {},
+                }
+            )
+        payload = self._sanitize_rows(
+            self._dedupe_payload(payload, keys=["trade_date", "index_code"])
+        )
+        self.client.table("raw_index_daily_quotes").upsert(
+            payload, on_conflict="trade_date,index_code"
         ).execute()
         return len(payload)
 
@@ -1267,16 +1208,8 @@ class SupabaseStore:
 
         market_breadth = None
         if as_of_raw:
-            raw_market_rows = (
-                self.client.table("raw_market_snapshot_daily")
-                .select("pct_change")
-                .eq("snapshot_date", as_of_raw)
-                .execute()
-                .data
-                or []
-            )
-            if raw_market_rows:
-                raw_market_df = pd.DataFrame(raw_market_rows)
+            raw_market_df = self.fetch_raw_market_snapshot(as_of)
+            if not raw_market_df.empty:
                 raw_market_df["pct_change"] = pd.to_numeric(
                     raw_market_df["pct_change"], errors="coerce"
                 )
@@ -1302,6 +1235,141 @@ class SupabaseStore:
         for row in rows:
             deduped[tuple(row.get(key) for key in keys)] = row
         return list(deduped.values())
+
+    @classmethod
+    def _compact_row(cls, row: dict[str, Any]) -> dict[str, Any]:
+        sanitized = cls._sanitize_row(row)
+        return {key: value for key, value in sanitized.items() if value is not None}
+
+    @classmethod
+    def _map_equity_daily_quotes_to_market_snapshot(
+        cls, quotes: pd.DataFrame
+    ) -> pd.DataFrame:
+        columns = [
+            "snapshot_date",
+            "symbol",
+            "name",
+            "last_price",
+            "pct_change",
+            "change_amount",
+            "volume",
+            "turnover",
+            "amplitude",
+            "turnover_rate",
+            "pe_dynamic",
+            "metadata",
+        ]
+        if quotes.empty:
+            return pd.DataFrame(columns=columns)
+
+        mapped = quotes.rename(
+            columns={
+                "trade_date": "snapshot_date",
+                "close": "last_price",
+            }
+        ).copy()
+        if "metadata" not in mapped.columns:
+            mapped["metadata"] = {}
+        return mapped.reindex(columns=columns)
+
+    @classmethod
+    def _map_equity_daily_quotes_to_stock_kline(
+        cls, quotes: pd.DataFrame
+    ) -> pd.DataFrame:
+        columns = [
+            "snapshot_date",
+            "ts",
+            "symbol",
+            "name",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "turnover",
+            "amplitude",
+            "pct_change",
+            "metadata",
+        ]
+        if quotes.empty:
+            return pd.DataFrame(columns=columns)
+
+        mapped = quotes.rename(columns={"trade_date": "snapshot_date"}).copy()
+        mapped["snapshot_date"] = mapped["snapshot_date"].astype(str)
+        mapped["ts"] = mapped["snapshot_date"].apply(
+            lambda value: cls._market_day_start(date.fromisoformat(value))
+        )
+        if "metadata" not in mapped.columns:
+            mapped["metadata"] = {}
+        return mapped.reindex(columns=columns)
+
+    @classmethod
+    def _map_limit_events_to_limit_up_pool(cls, events: pd.DataFrame) -> pd.DataFrame:
+        columns = [
+            "snapshot_date",
+            "symbol",
+            "name",
+            "board_count",
+            "seal_funds",
+            "turnover_rate",
+            "first_limit_time",
+            "last_limit_time",
+            "metadata",
+        ]
+        if events.empty:
+            return pd.DataFrame(columns=columns)
+
+        mapped = events.copy()
+        if "event_side" in mapped.columns:
+            mapped = mapped[mapped["event_side"] == "up"].copy()
+        mapped = mapped.rename(
+            columns={
+                "trade_date": "snapshot_date",
+                "seal_amount": "seal_funds",
+            }
+        )
+        if mapped.empty:
+            return pd.DataFrame(columns=columns)
+        if "metadata" not in mapped.columns:
+            mapped["metadata"] = {}
+        mapped = mapped.sort_values(
+            by=["snapshot_date", "symbol"], ascending=[True, True]
+        )
+        return mapped.reindex(columns=columns)
+
+    @classmethod
+    def _map_concept_board_daily_to_concept_boards(
+        cls, boards: pd.DataFrame
+    ) -> pd.DataFrame:
+        columns = [
+            "snapshot_date",
+            "theme_name",
+            "turnover",
+            "pct_change",
+            "market_cap",
+            "advancers",
+            "decliners",
+            "leader",
+            "rank",
+            "metadata",
+        ]
+        if boards.empty:
+            return pd.DataFrame(columns=columns)
+
+        mapped = boards.copy()
+        if "board_type" in mapped.columns:
+            concept_only = mapped[mapped["board_type"] == "concept"].copy()
+            if not concept_only.empty:
+                mapped = concept_only
+        mapped = mapped.rename(
+            columns={
+                "trade_date": "snapshot_date",
+                "board_name": "theme_name",
+            }
+        )
+        if "metadata" not in mapped.columns:
+            mapped["metadata"] = {}
+        return mapped.reindex(columns=columns)
 
     @classmethod
     def _sanitize_rows(cls, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

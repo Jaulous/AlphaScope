@@ -4,12 +4,46 @@
 Record important project changes so humans and agents can quickly reconstruct what changed, why it mattered, and when it landed.
 
 ## Update Rule
-- Add an entry whenever a major product, architecture, deployment, data-pipeline, or customer-facing UX change is completed.
+- Add an entry whenever an important milestone defined in [`docs/WORKFLOW.md`](./docs/WORKFLOW.md) is completed.
 - Update this file in the same change set as the underlying implementation.
 - Every entry header must include an exact timestamp in ISO 8601 form with timezone offset, for example `2026-04-06T18:02:00+08:00`.
 - Keep entries concise and factual. This is a high-signal project log, not a full commit mirror.
 
 ## Entries
+
+### 2026-04-09T22:32:12+08:00
+- Unified the threshold for Git maintenance and `CHANGELOG.md`: the same important-milestone definition in `docs/WORKFLOW.md` now drives `verify -> commit -> push -> changelog`.
+- Removed the extra "major repo-facing change" filter so future milestone handling stays simple and does not rely on a second subjective standard.
+
+### 2026-04-09T22:29:16+08:00
+- Quantified the `CHANGELOG.md` trigger in `docs/WORKFLOW.md` so it now applies only to long-lived repo-history changes, not to every important Git milestone.
+- Split the rule more clearly: important milestones always require `verify -> commit -> push`, while `STATUS.md` tracks current runtime state and `CHANGELOG.md` tracks durable project-history events.
+
+### 2026-04-09T22:23:29+08:00
+- Tightened the Git governance rule by defining "important milestone" explicitly in `docs/WORKFLOW.md` as a system-fact change, not an informal judgment call.
+- Required every important milestone to close with `verify -> commit -> push`, plus `STATUS.md` and `CHANGELOG.md` maintenance when the milestone changes runtime state or major repo-facing behavior.
+- Updated `AGENTS.md` so future agent runs follow the same explicit milestone rule instead of inventing separate logging files or ad hoc criteria.
+
+### 2026-04-09T18:24:42+08:00
+- Reworked the documentation governance chain so `PRD.md` and `RAW_DATA_MODEL.md` are now core required docs, while the old `PROJECT_CONTEXT.md` entry was removed.
+- Updated `AGENTS.md`, `README.md`, and `docs/DOCS_INDEX.md` so the maintained read order and update responsibilities match the intended project-control model more closely.
+- Repositioned `docs/WORKFLOW.md` as the project's maintained working guidance and pitfall log for agents/operators rather than pretending every documented safeguard is a hard-enforced automation gate.
+
+### 2026-04-09T17:57:49+08:00
+- Applied `0007_raw_data_layer_v2.sql` and `0008_raw_v2_cutover.sql` to the production Supabase project, backfilled Raw V2 landing/audit plus canonical tables from stored Raw V1 data, and dropped the legacy Raw V1 raw tables.
+- Verified the production Supabase project now serves Raw V2-only raw storage, including seeded `raw_index_daily_quotes`, while `raw_concept_board_constituents_daily` remains the only still-empty best-effort table.
+- Hardened concept-board-constituent ingestion by isolating each board fetch in a subprocess with a hard timeout and by bounding the daily run to the top 100 ranked boards so one stalled AkShare call cannot hold the full fetch pipeline hostage.
+
+### 2026-04-06T23:59:53+08:00
+- Cut the runtime over to Raw V2-only reads and writes by removing direct Raw V1 table dependencies from the Supabase store and fetch pipeline.
+- Replaced the Raw V1 stock-kline cache dependency with Raw V2 quote-history reconstruction from `raw_equity_daily_quotes`.
+- Added a new `0008_raw_v2_cutover.sql` migration that backfills Raw V2 landing/audit and canonical tables from stored Raw V1 data before dropping the Raw V1 tables.
+- Extended ingestion toward the remaining Raw V2 tables by adding best-effort writes for concept-board constituents and index daily quotes.
+
+### 2026-04-06T23:23:13+08:00
+- Moved the Supabase raw-source reuse path one step further into Raw V2 by teaching legacy raw readers to reconstruct `market_snapshot`, `limit_up_pool`, historical limit-up-pool, and `concept_boards` from canonical Raw V2 tables before falling back to Raw V1 tables.
+- Switched dashboard market-breadth reads to prefer `raw_equity_daily_quotes`, so stored snapshots can still render breadth metrics when only Raw V2 quote rows are available.
+- Kept Raw V1 writes in place as compatibility scaffolding; this change advances read-path migration without claiming a full Raw V1 removal.
 
 ### 2026-04-06T22:21:08+08:00
 - Rebuilt the Raw V2 Excalidraw architecture asset with explicit text sizing fields so the local `.excalidraw.json` scene imports and renders correctly inside Excalidraw.
