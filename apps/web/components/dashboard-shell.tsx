@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -9,7 +9,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
 } from "lucide-react";
 
 import type {
@@ -555,29 +554,39 @@ function LoadingState() {
           正在加载最新指标快照
         </div>
         <div className="text-sm text-zinc-400">
-          页面会在拿到最新持久化快照后再渲染指标、题材和个股面板。
+          页面正在等待最新持久化快照返回。
         </div>
       </CardContent>
     </Card>
   );
 }
 
-export function DashboardShell() {
-  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function DashboardShell({
+  initialSnapshot = null,
+  initialError = null,
+}: {
+  initialSnapshot?: DashboardSnapshot | null;
+  initialError?: string | null;
+}) {
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(initialSnapshot);
+  const [isLoading, setIsLoading] = useState(initialSnapshot === null && initialError === null);
+  const [error, setError] = useState<string | null>(initialError);
+  const isRequestInFlight = useRef(false);
 
   const loadSnapshot = useCallback(async (mode: "initial" | "refresh") => {
+    if (isRequestInFlight.current) {
+      return;
+    }
+
+    isRequestInFlight.current = true;
     if (mode === "initial") {
       setIsLoading(true);
-    } else {
-      setIsRefreshing(true);
     }
-    setError(null);
+
     try {
       const nextSnapshot = await fetchDashboardSnapshot();
       setSnapshot(nextSnapshot);
+      setError(null);
     } catch (loadError) {
       const message =
         loadError instanceof Error
@@ -586,17 +595,21 @@ export function DashboardShell() {
       setError(message);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
+      isRequestInFlight.current = false;
     }
   }, []);
 
   useEffect(() => {
-    void loadSnapshot("initial");
+    if (!initialSnapshot && !initialError) {
+      void loadSnapshot("initial");
+    }
+
     const timer = window.setInterval(() => {
       void loadSnapshot("refresh");
     }, REFRESH_INTERVAL_MS);
+
     return () => window.clearInterval(timer);
-  }, [loadSnapshot]);
+  }, [initialError, initialSnapshot, loadSnapshot]);
 
   const indicators = useMemo(
     () =>
@@ -711,16 +724,6 @@ export function DashboardShell() {
                 {showInitialLoading ? "..." : snapshot?.active_themes.length ?? 0} · 个股{" "}
                 {showInitialLoading ? "..." : snapshot?.tracked_stocks.length ?? 0}
               </div>
-              <Button
-                variant="accent"
-                onClick={() => void loadSnapshot("refresh")}
-                disabled={isRefreshing}
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                />
-                {isRefreshing ? "Refreshing" : "Refresh"}
-              </Button>
             </div>
           </div>
         </section>

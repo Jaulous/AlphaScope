@@ -50,6 +50,7 @@ Store stable reference facts needed for implementation and operations.
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
   - `NEXT_PUBLIC_SERVER_URL`
+  - `ALPHASCOPE_API_URL`
   - `SERVER_HOST`
   - `SERVER_PORT`
   - `SERVER_CORS_ORIGINS`
@@ -59,12 +60,14 @@ Store stable reference facts needed for implementation and operations.
   - `TRACKING_TOP_TURNOVER_COUNT`
   - `TRACKING_LIMIT_UP_POOL_COUNT`
   - `TRACKING_INCLUDE_SYMBOLS`
+  - `VERCEL_AUTOMATION_BYPASS_SECRET`
 
 ## External Systems
 - AkShare: primary market data source for snapshots, concept boards, limit-up pool, and stock K-line data.
 - Supabase Postgres: system of record for raw datasets, serving snapshots, definitions, board documents, and ingestion run logs.
 - FastAPI: backend API surface.
 - Next.js: frontend rendering surface.
+- The web homepage fetches `GET /api/dashboard/latest` on the server for the initial render and only uses client polling for bounded background refreshes after hydration.
 
 ## Raw Storage Notes
 - Raw V2 tables used by runtime ingestion:

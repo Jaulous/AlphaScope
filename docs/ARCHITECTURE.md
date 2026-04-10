@@ -62,7 +62,7 @@ Explain how the system is structured and why.
 17. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
 18. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
 19. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
-20. Next.js renders the dashboard from the API response and does not compute market state on the client.
+20. Next.js fetches the latest dashboard snapshot on the server for the initial page render, then the hydrated client shell continues bounded background refreshes without recomputing market state in the browser.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.

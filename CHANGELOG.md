@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-10T10:20:33+08:00
+- Changed the dashboard homepage to fetch the latest snapshot on the server for the initial render instead of waiting for a client-side request after hydration, so the first page load no longer stalls behind an avoidable second roundtrip.
+- Removed the manual `Refresh` action from the runtime strip because it did not add meaningful product value beyond the existing background refresh loop and made the UI look more interactive than it really is.
+- Documented the updated frontend runtime behavior and the extra upstream API env vars used by the server-rendered snapshot path.
+
 ### 2026-04-09T23:53:14+08:00
 - Added a total batch runtime budget on top of the existing per-board subprocess timeout for concept-board-constituent ingestion so that this best-effort AkShare source can no longer stretch a single fetch for minutes at a time.
 - Verified locally that the main fetch pipeline now persisted a fresh `2026-04-09` snapshot with `8` indicators, `20` active themes, and `40` tracked stocks while tolerating best-effort-source warnings.

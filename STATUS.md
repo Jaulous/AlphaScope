@@ -130,6 +130,7 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
   - active theme ranking
   - tracked equity watchlist
   - ingestion status card with per-source statuses from `fetch_runs`
+- The homepage now renders the latest stored snapshot on the server for the initial load, then refreshes in the background on an interval instead of depending on a manual refresh button.
 - The UI is not an editing surface and no longer depends on manual canvas operations.
 
 ## Known Limitations
