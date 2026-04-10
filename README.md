@@ -1,6 +1,6 @@
 # AlphaScope
 
-AlphaScope is a Turborepo monorepo for a quant indicator observation platform. It ingests market data from AkShare, persists raw data in Supabase, computes indicators and related universes through a unified `quant-core` engine, and serves the latest stored snapshot through FastAPI and Next.js.
+AlphaScope is a Turborepo monorepo for a research-engine market monitoring and decision dashboard. It ingests market data from AkShare, persists raw data in Supabase, computes indicators and related universes through a unified `quant-core` engine, and serves a dashboard entrypoint for pre-market planning, post-market review, and cross-day tracking through FastAPI and Next.js.
 
 ## Start Here
 - Read [`SOUL.md`](./SOUL.md) for repo-wide response and execution rules.
@@ -12,7 +12,7 @@ AlphaScope is a Turborepo monorepo for a quant indicator observation platform. I
 - Use [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) for operational debugging.
 
 ## System Summary
-- Product shape: backend-driven quant indicator observation platform
+- Product shape: backend-driven research-engine market monitoring and decision dashboard
 - Core flow: `AkShare -> raw tables -> quant-core -> serving tables -> API -> UI`
 - Frontend: Next.js 15
 - Backend: FastAPI

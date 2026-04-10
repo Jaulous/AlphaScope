@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-09T22:59:47+08:00
+- Reframed the AlphaScope PRD around the next-phase product definition: a research-engine monitoring and decision dashboard rather than a hypothesis-workbench-first or generic dashboard-shell direction.
+- Locked the PRD onto the three target operating moments of pre-market planning, post-market review, and cross-day tracking, with indicators and indicator iteration speed as the first-class product center.
+- Synced the tighter product direction into `docs/DECISIONS.md`, `AGENTS.md`, and `README.md` so future repo work starts from the same definition.
+
 ### 2026-04-09T22:41:04+08:00
 - Removed the obsolete `docs/assets/raw-v2-architecture/` Excalidraw documentation asset after the repo documentation model was simplified around the maintained core docs.
 - Cleaned local documentation garbage files and added `supabase/.temp/` to `.gitignore` so temporary Supabase CLI state does not keep polluting the worktree.

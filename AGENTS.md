@@ -21,8 +21,10 @@ When an agent reads this file, it must:
 - Update `./CHANGELOG.md` in the same change whenever an important milestone is completed, and record the entry with an exact timestamp.
 
 ## Project-Specific Notes
-- AlphaScope is a quant indicator observation platform for short-term market analysis, not an editable whiteboard product.
+- AlphaScope is a research-engine market monitoring and decision dashboard for short-term market analysis, not an editable whiteboard or hypothesis-workbench-first product.
+- The primary product loop is pre-market planning, post-market review, and cross-day tracking through a dashboard entrypoint.
 - The canonical system shape is `AkShare -> raw Supabase tables -> quant-core -> serving tables -> FastAPI -> Next.js`, with indicator computation as the product center.
+- The next phase prioritizes stronger data capability and stronger indicator computation over richer presentation-layer complexity.
 - `quant-core` follows a unified Lean-style architecture: `ingestion + universe + indicators + engine`.
 - Active theme policy changes belong in `packages/quant-core/src/quant_core/universe/active_themes.py`, not in indicator implementations.
 - Tracked equity coverage is controlled from `packages/quant-core/src/quant_core/universe/tracked_equities.py` and the tracking env vars.
