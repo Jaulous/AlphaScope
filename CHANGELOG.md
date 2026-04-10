@@ -11,6 +11,10 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-10T10:59:07+08:00
+- Added explicit workflow guidance to use the local Supabase CLI for migration checks, SQL probes, and database inspection instead of ad hoc repo-local workarounds.
+- Clarified in the Git workflow that `git diff --check` is only a patch-hygiene check and that mixed local milestones must be split into separate commits before push.
+
 ### 2026-04-10T10:20:33+08:00
 - Changed the dashboard homepage to fetch the latest snapshot on the server for the initial render instead of waiting for a client-side request after hydration, so the first page load no longer stalls behind an avoidable second roundtrip.
 - Removed the manual `Refresh` action from the runtime strip because it did not add meaningful product value beyond the existing background refresh loop and made the UI look more interactive than it really is.

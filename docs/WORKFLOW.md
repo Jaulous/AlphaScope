@@ -51,6 +51,18 @@ Open the frontend page:
 pnpm open:frontend
 ```
 
+Supabase inspection and validation:
+
+```bash
+# If the repo is linked to the target Supabase project
+supabase migration list --linked
+supabase db query --linked "select now() as ts;"
+supabase inspect db table-stats --linked
+```
+
+- Prefer the local `supabase` CLI for migration state, SQL probes, and table/runtime inspection instead of ad hoc one-off scripts.
+- If this repo is not linked to the target project yet, run `supabase link --project-ref <ref>` first or use the same commands with `--db-url`.
+
 Manual fetch through the packaged Python entrypoint:
 
 ```bash
@@ -97,7 +109,9 @@ Startup behavior:
 - Run the relevant verification commands before push: at minimum `pnpm test`, `pnpm typecheck`, and `pnpm build` for major changes.
 - Every important milestone must end with `verify -> commit -> push -> update CHANGELOG`; if the milestone changes current runtime state, also update [`../STATUS.md`](../STATUS.md).
 - Use the same important-milestone definition for both Git maintenance and `CHANGELOG.md`; do not create a second looser or stricter threshold for changelog entries.
+- `git diff --check` is only a patch-hygiene check. It does not replace functional verification, `commit`, or `push`.
 - Push every major completed change set to the remote branch immediately after verification.
+- If multiple milestones are sitting together in the local worktree, split them into separate commits before push instead of shipping one mixed batch.
 - After each important milestone, make sure the local branch, local commits, and remote tracking branch are in sync before stopping work.
 - Merge to `main` only through a reviewed pull request.
 
