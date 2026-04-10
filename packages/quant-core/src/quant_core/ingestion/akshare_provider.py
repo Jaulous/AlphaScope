@@ -25,6 +25,7 @@ class FetchArtifact:
 
 _CONCEPT_BOARD_CONSTITUENT_MAX_WORKERS = 4
 _CONCEPT_BOARD_CONSTITUENT_FETCH_TIMEOUT_SECONDS = 20.0
+_CONCEPT_BOARD_CONSTITUENT_TOTAL_TIMEOUT_SECONDS = 45.0
 _CONCEPT_BOARD_CONSTITUENT_POLL_INTERVAL_SECONDS = 0.1
 
 
@@ -44,6 +45,20 @@ def _fetch_concept_board_constituents_worker(
         send_conn.send({"ok": False, "error": str(exc)})
     finally:
         send_conn.close()
+
+
+def _shutdown_concept_board_constituent_worker(
+    process: Any,
+    recv_conn: Any,
+) -> None:
+    recv_conn.close()
+    process.join(timeout=0.2)
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=0.5)
+    if process.is_alive():
+        process.kill()
+        process.join(timeout=0.5)
 
 
 class AkShareProvider:
@@ -176,8 +191,25 @@ class AkShareProvider:
         ctx = get_context("spawn")
         pending = list(requested)
         active: dict[str, tuple[Any, Any, float]] = {}
+        fetch_started_at = monotonic()
 
         while pending or active:
+            if (
+                monotonic() - fetch_started_at
+                >= _CONCEPT_BOARD_CONSTITUENT_TOTAL_TIMEOUT_SECONDS
+            ):
+                remaining_board_count = len(pending) + len(active)
+                for board_name, (process, recv_conn, _) in list(active.items()):
+                    _shutdown_concept_board_constituent_worker(process, recv_conn)
+                    active.pop(board_name, None)
+                pending.clear()
+                errors.append(
+                    "global timeout after "
+                    f"{int(_CONCEPT_BOARD_CONSTITUENT_TOTAL_TIMEOUT_SECONDS)}s; "
+                    f"skipped {remaining_board_count} remaining boards"
+                )
+                break
+
             while pending and len(active) < _CONCEPT_BOARD_CONSTITUENT_MAX_WORKERS:
                 board_name = pending.pop(0)
                 recv_conn, send_conn = ctx.Pipe(duplex=False)
@@ -194,11 +226,7 @@ class AkShareProvider:
             for board_name, (process, recv_conn, started_at) in list(active.items()):
                 if recv_conn.poll():
                     result = recv_conn.recv()
-                    recv_conn.close()
-                    process.join(timeout=0.2)
-                    if process.is_alive():
-                        process.terminate()
-                        process.join(timeout=0.2)
+                    _shutdown_concept_board_constituent_worker(process, recv_conn)
                     completed.append(board_name)
                     if not result.get("ok"):
                         errors.append(f"{board_name}: {result.get('error')}")
@@ -225,12 +253,7 @@ class AkShareProvider:
                     monotonic() - started_at
                     >= _CONCEPT_BOARD_CONSTITUENT_FETCH_TIMEOUT_SECONDS
                 ):
-                    recv_conn.close()
-                    process.terminate()
-                    process.join(timeout=0.5)
-                    if process.is_alive():
-                        process.kill()
-                        process.join(timeout=0.5)
+                    _shutdown_concept_board_constituent_worker(process, recv_conn)
                     completed.append(board_name)
                     errors.append(
                         f"{board_name}: timed out after "
@@ -259,6 +282,9 @@ class AkShareProvider:
                 "requested_board_count": len(requested),
                 "succeeded_board_count": len(raw_frames),
                 "failed_board_count": len(errors),
+                "global_timeout_seconds": int(
+                    _CONCEPT_BOARD_CONSTITUENT_TOTAL_TIMEOUT_SECONDS
+                ),
                 "errors": errors[:20],
             },
         )

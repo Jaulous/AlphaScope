@@ -88,7 +88,7 @@ Store stable reference facts needed for implementation and operations.
   - `raw_concept_board_daily`
   - `raw_concept_board_constituents_daily`
   - `raw_index_daily_quotes`
-- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards for the target trading day so the fetch pipeline stays within an operationally safe runtime budget.
+- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards for the target trading day, with both per-board subprocess timeouts and a total batch budget so the fetch pipeline stays within an operationally safe runtime window.
 - Runtime also writes landing/audit rows for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`

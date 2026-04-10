@@ -46,7 +46,7 @@ As of `2026-04-09`, this repository is no longer in the original editable-whiteb
   - `raw_concept_board_daily`
   - `raw_concept_board_constituents_daily`
   - `raw_index_daily_quotes`
-- Daily concept-board-constituent ingestion is bounded to the top 100 ranked concept boards for the day, and each board fetch runs in an isolated subprocess with a hard timeout so one stalled upstream call cannot block the whole daily job.
+- Daily concept-board-constituent ingestion is bounded to the top 100 ranked concept boards for the day, each board fetch runs in an isolated subprocess with a hard timeout, and the whole constituent batch also has a total runtime budget so one slow best-effort source cannot block the whole daily job.
 - Runtime also writes landing/audit records for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`
@@ -83,18 +83,22 @@ As of `2026-04-09`, this repository is no longer in the original editable-whiteb
 
 ## Verified Runtime Snapshot
 
-Verified locally on `2026-03-08`:
+Verified locally on `2026-04-09`:
 
 - `GET /api/health`: success
 - `GET /api/dashboard/latest`: success
-- latest `as_of`: `2026-03-06`
-- latest indicator count: `7`
+- latest `as_of`: `2026-04-09`
+- latest indicator count: `8`
 - latest theme count: `20`
 - latest tracked stock count: `40`
 - latest fetch run status: `success_with_warnings`
-- latest fetch target date: `2026-03-06`
+- latest fetch target date: `2026-04-09`
 
-That warning state is expected on a Sunday. The system correctly backfilled the latest trading day instead of writing a non-trading-day snapshot.
+That warning state is currently expected because two best-effort datasets can still fail independently without blocking the main indicator pipeline:
+- `concept_board_constituents`
+- `index_daily_quotes`
+
+The main indicator-serving chain still completed successfully and persisted the `2026-04-09` snapshot.
 
 ## Verified Remote Raw Snapshot
 
@@ -117,7 +121,7 @@ Verified against the production Supabase project on `2026-04-09`:
   - `raw_index_daily_quotes`: `6`
   - `raw_concept_board_constituents_daily`: `0`
 
-The remaining zero-count table is still `raw_concept_board_constituents_daily`. Its upstream source remains the slowest AkShare dependency, so that dataset is still treated as best-effort even after the runtime was bounded with per-board subprocess timeouts.
+The remaining zero-count table is still `raw_concept_board_constituents_daily`. Its upstream source remains the slowest AkShare dependency, so that dataset is still treated as best-effort even after the runtime was bounded with both per-board subprocess timeouts and a total batch budget.
 
 ## Current UI State
 
@@ -146,4 +150,4 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
 - Add a historical ingestion runs page or endpoint, not only the latest run summary.
 - Normalize tracked stock names in the serving layer.
 - Add stronger source-level observability for AkShare latency and fallback usage.
-- Stabilize concept-board-constituent ingestion with stronger retry and fallback handling.
+- Stabilize index-daily-quote and concept-board-constituent best-effort sources without slowing the main indicator pipeline.

@@ -200,7 +200,7 @@ This layer converts the landing data into stable, analysis-friendly raw facts.
   - `raw_concept_board_daily`
   - `raw_concept_board_constituents_daily`
   - `raw_index_daily_quotes`
-- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards and each board fetch is isolated behind a hard timeout so stalled upstream requests do not block the whole daily run.
+- Daily concept-board-constituent ingestion is currently bounded to the top 100 ranked concept boards, each board fetch is isolated behind a hard timeout, and the full constituent batch also has a total runtime budget so stalled upstream requests do not block the whole daily run.
 - The runtime also writes landing/audit records for fetched daily datasets:
   - `raw_ingestion_runs`
   - `raw_dataset_batches`

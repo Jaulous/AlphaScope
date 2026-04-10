@@ -42,7 +42,7 @@ Explain how the system is structured and why.
 6. Raw V2 is the production raw shape: a landing/audit layer (`raw_ingestion_runs`, `raw_dataset_batches`, `raw_source_payload_rows`) plus canonical raw domain tables (`raw_trade_calendar`, `raw_security_master`, `raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, `raw_concept_board_daily`, `raw_concept_board_constituents_daily`, `raw_index_daily_quotes`).
 7. The cutover migration backfills canonical and landing/audit rows from legacy V1 raw tables before dropping those V1 tables.
 8. The runtime writes Raw V2 trade calendar, security master, equity daily quotes, daily limit events, concept board daily facts, concept board constituents, and index daily quotes.
-9. Daily concept-board-constituent ingestion is bounded to the top 100 ranked concept boards for the day, and each board fetch runs in an isolated subprocess with a hard timeout so a single stalled upstream call cannot block the entire fetch.
+9. Daily concept-board-constituent ingestion is bounded to the top 100 ranked concept boards for the day, each board fetch runs in an isolated subprocess with a hard timeout, and the whole constituent batch also has a total wall-clock budget so this best-effort source cannot block the entire fetch for minutes at a time.
 10. For fetched daily datasets (`market_snapshot`, `limit_up_pool`, `concept_boards`, `concept_board_constituents`, `index_daily_quotes`), the runtime writes Raw V2 landing/audit records into `raw_ingestion_runs`, `raw_dataset_batches`, and `raw_source_payload_rows`.
 11. `quant-core` builds an execution plan from enabled indicator definitions, loads any needed history, and reconstructs a single `IndicatorContext`.
 12. The runtime rebuilds current and historical execution inputs directly from canonical Raw V2 tables (`raw_equity_daily_quotes`, `raw_equity_daily_limit_events`, `raw_concept_board_daily`).
@@ -78,4 +78,4 @@ Explain how the system is structured and why.
 - Legacy naming still exists in some package/module identifiers (`limitboard_*`), even though the canonical product is AlphaScope.
 - Stock K-line name normalization is still imperfect for some symbols because upstream raw data is inconsistent.
 - Multiprocessing in `quant-core` improves throughput for larger indicator sets but increases runtime complexity and requires module-safe entrypoints.
-- Concept board constituent fetches still depend on an upstream AkShare endpoint that can intermittently disconnect or stall, so those writes remain best-effort, timeout-bounded, and warning-driven.
+- Concept board constituent fetches still depend on an upstream AkShare endpoint that can intermittently disconnect or stall, so those writes remain best-effort, bounded by both per-board and total batch time budgets, and warning-driven.

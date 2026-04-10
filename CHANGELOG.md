@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-09T23:53:14+08:00
+- Added a total batch runtime budget on top of the existing per-board subprocess timeout for concept-board-constituent ingestion so that this best-effort AkShare source can no longer stretch a single fetch for minutes at a time.
+- Verified locally that the main fetch pipeline now persisted a fresh `2026-04-09` snapshot with `8` indicators, `20` active themes, and `40` tracked stocks while tolerating best-effort-source warnings.
+- Updated architecture, raw-model, reference, and status docs so the maintained runtime contract matches the new bounded-ingestion behavior and the latest verified local snapshot.
+
 ### 2026-04-09T22:59:47+08:00
 - Reframed the AlphaScope PRD around the next-phase product definition: a research-engine monitoring and decision dashboard rather than a hypothesis-workbench-first or generic dashboard-shell direction.
 - Locked the PRD onto the three target operating moments of pre-market planning, post-market review, and cross-day tracking, with indicators and indicator iteration speed as the first-class product center.
