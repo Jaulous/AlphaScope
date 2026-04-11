@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-11T22:38:52+08:00
+- Reworked the serving-metrics section into a horizontal indicator filmstrip so each metric now reads as one large chart card that can be browsed continuously left and right instead of only through a vertical stack.
+- Strengthened indicator prominence by enlarging the primary value panel, expanding chart height, and adding explicit reel navigation plus an active-card summary strip.
+- Verified the new rail interaction locally by advancing the reel between indicator cards in the running dashboard.
+
 ### 2026-04-10T10:59:07+08:00
 - Added explicit workflow guidance to use the local Supabase CLI for migration checks, SQL probes, and database inspection instead of ad hoc repo-local workarounds.
 - Clarified in the Git workflow that `git diff --check` is only a patch-hygiene check and that mixed local milestones must be split into separate commits before push.

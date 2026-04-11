@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
   BarChart3,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
 } from "lucide-react";
 
@@ -223,8 +225,12 @@ function IndicatorStockTable({
 
 function ServingMetricRow({
   indicator,
+  index,
+  total,
 }: {
   indicator: DashboardIndicator;
+  index: number;
+  total: number;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const stocks = useMemo(() => getIndicatorStocks(indicator), [indicator]);
@@ -245,131 +251,166 @@ function ServingMetricRow({
   return (
     <div
       data-serving-metric-row
-      className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)_170px]"
+      data-indicator-card
+      className="w-[min(92vw,1120px)] flex-none snap-center overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,12,21,0.98),rgba(4,7,14,0.97))] shadow-[0_36px_110px_rgba(0,0,0,0.34)]"
     >
-      <div className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.92),rgba(6,10,18,0.88))] p-6 xl:border-b-0 xl:border-r">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400">
-                {getIndicatorCategory(indicator)}
-              </span>
-              <span className="rounded-full border border-white/8 bg-black/20 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                {indicator.key}
-              </span>
-            </div>
-            <CardTitle className="mt-4 text-[32px] leading-[1.02] text-white">
-              {indicator.title}
-            </CardTitle>
-            <div className="mt-6 flex items-end gap-3">
-              <div className="font-mono text-[52px] font-semibold leading-none text-white">
-                {formatIndicatorValue(indicator)}
-              </div>
-              <div className="pb-1 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
-                {indicator.unit ?? "metric"}
-              </div>
-            </div>
+      <div className="flex items-center justify-between gap-3 border-b border-white/8 bg-[linear-gradient(90deg,rgba(9,18,32,0.95),rgba(7,14,25,0.82))] px-5 py-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="rounded-full border border-emerald-400/18 bg-emerald-400/[0.08] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-emerald-200">
+            {getIndicatorCategory(indicator)}
+          </span>
+          <span className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-zinc-400">
+            Indicator Reel
+          </span>
+          <span className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+            {indicator.key}
+          </span>
+        </div>
+        <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-zinc-400">
+          {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+        </div>
+      </div>
 
-            <div className="mt-6 grid gap-2">
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className={`rounded-full border px-3 py-1 ${panelAccent}`}>
-                  {isPositive ? (
-                    <ArrowUpRight className="mr-1 inline h-3.5 w-3.5" />
-                  ) : isNegative ? (
-                    <ArrowDownRight className="mr-1 inline h-3.5 w-3.5" />
-                  ) : (
-                    <Activity className="mr-1 inline h-3.5 w-3.5" />
-                  )}
-                  <span className={accentClass}>
-                    {trend.delta === null
-                      ? "History pending"
-                      : `${formatCompactSignedNumber(trend.delta)} / ${formatSignedPercent(trend.changePct)}`}
+      <div className="grid gap-0 xl:grid-cols-[360px_minmax(0,1fr)_220px]">
+        <div className="border-b border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(16,40,58,0.34),transparent_45%),linear-gradient(180deg,rgba(8,12,22,0.92),rgba(6,10,18,0.88))] p-6 xl:border-b-0 xl:border-r">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                Stored Snapshot
+              </div>
+              <CardTitle className="mt-4 text-[34px] leading-[1.02] text-white">
+                {indicator.title}
+              </CardTitle>
+              <div className="mt-6 flex items-end gap-3">
+                <div className="font-mono text-[58px] font-semibold leading-none text-white">
+                  {formatIndicatorValue(indicator)}
+                </div>
+                <div className="pb-1 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+                  {indicator.unit ?? "metric"}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-2">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className={`rounded-full border px-3 py-1 ${panelAccent}`}>
+                    {isPositive ? (
+                      <ArrowUpRight className="mr-1 inline h-3.5 w-3.5" />
+                    ) : isNegative ? (
+                      <ArrowDownRight className="mr-1 inline h-3.5 w-3.5" />
+                    ) : (
+                      <Activity className="mr-1 inline h-3.5 w-3.5" />
+                    )}
+                    <span className={accentClass}>
+                      {trend.delta === null
+                        ? "History pending"
+                        : `${formatCompactSignedNumber(trend.delta)} / ${formatSignedPercent(trend.changePct)}`}
+                    </span>
                   </span>
-                </span>
-                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
-                  Samples {trend.sampleSize}
-                </span>
-                <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
-                  Snapshot {indicator.indicator_date}
-                </span>
+                  <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
+                    Samples {trend.sampleSize}
+                  </span>
+                  <span className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-zinc-400">
+                    Snapshot {indicator.indicator_date}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2 text-right">
-            <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
-              Stored
+            <div className="rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-2 text-right">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+                Stored
+              </div>
+              <div className="mt-1 text-sm text-zinc-300">{indicator.indicator_date}</div>
             </div>
-            <div className="mt-1 text-sm text-zinc-300">{indicator.indicator_date}</div>
           </div>
+
+          <div className="mt-8 rounded-[24px] border border-white/8 bg-black/20 p-4">
+            <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">
+              Reading Focus
+            </div>
+            <div className="mt-3 text-sm leading-6 text-zinc-300">
+              {trend.sampleSize > 1
+                ? "这张卡片强调一个指标、一张主图、一组状态读数。横向滑动时，每次都像翻一张新的研究图表。"
+                : "历史样本还不够长，先保留强主读数和基础状态，后续再用更长时间窗验证。"}
+            </div>
+          </div>
+
+          {stocks.length > 0 ? (
+            <div className="mt-6">
+              <Button
+                variant="ghost"
+                className="h-10 rounded-[14px] border border-white/8 bg-white/[0.03] px-3 text-zinc-200 hover:border-emerald-400/20 hover:bg-emerald-400/10"
+                onClick={() => setIsExpanded((value) => !value)}
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                关联股票 {stocks.length}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
-        {stocks.length > 0 ? (
-          <div className="mt-8">
-            <Button
-              variant="ghost"
-              className="h-10 rounded-[14px] border border-white/8 bg-white/[0.03] px-3 text-zinc-200 hover:border-emerald-400/20 hover:bg-emerald-400/10"
-              onClick={() => setIsExpanded((value) => !value)}
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-              关联股票 {stocks.length}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+        <div className="border-b border-white/8 bg-[radial-gradient(circle_at_top,rgba(19,72,54,0.16),transparent_45%),linear-gradient(180deg,rgba(7,11,22,0.94),rgba(4,8,16,0.92))] p-6 xl:border-b-0 xl:border-r">
+          <MetricTrendChart
+            history={indicator.history ?? []}
+            chartClassName="h-[320px] lg:h-[360px]"
+          />
+        </div>
 
-      <div className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(7,11,22,0.94),rgba(4,8,16,0.92))] p-6 xl:border-b-0 xl:border-r">
-        <MetricTrendChart history={indicator.history ?? []} />
-      </div>
-
-      <div className="bg-[linear-gradient(180deg,rgba(5,9,16,0.96),rgba(4,8,15,0.92))] p-5">
-        <div className="flex h-full flex-col justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-zinc-500">
-              <BarChart3 className="h-3.5 w-3.5" />
-              Market Readout
-            </div>
-            <div className="mt-4 space-y-3">
-              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                  Latest Move
-                </div>
-                <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
-                  {trend.delta === null ? "--" : formatCompactSignedNumber(trend.delta)}
-                </div>
+        <div className="bg-[linear-gradient(180deg,rgba(5,9,16,0.96),rgba(4,8,15,0.92))] p-5">
+          <div className="flex h-full flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                <BarChart3 className="h-3.5 w-3.5" />
+                Market Readout
               </div>
-              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                  Relative Change
+              <div className="mt-4 space-y-3">
+                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                    Latest Move
+                  </div>
+                  <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
+                    {trend.delta === null ? "--" : formatCompactSignedNumber(trend.delta)}
+                  </div>
                 </div>
-                <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
-                  {formatSignedPercent(trend.changePct)}
+                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                    Relative Change
+                  </div>
+                  <div className={`mt-2 text-xl font-semibold ${accentClass}`}>
+                    {formatSignedPercent(trend.changePct)}
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                  Tracked Stocks
+                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                    Tracked Stocks
+                  </div>
+                  <div className="mt-2 text-xl font-semibold text-white">
+                    {stocks.length}
+                  </div>
                 </div>
-                <div className="mt-2 text-xl font-semibold text-white">
-                  {stocks.length}
+                <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-3">
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                    View Mode
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-zinc-200">
+                    Horizontal Chart Reel
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-5 rounded-[18px] border border-white/8 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
-            {trend.sampleSize > 1
-              ? "沿用终端式展示：左侧读数，中部图表，右侧状态面板。"
-              : "历史样本不足时，仅保留主读数与基础状态。"}
+            <div className="mt-5 rounded-[18px] border border-white/8 bg-black/20 p-3 text-xs leading-5 text-zinc-500">
+              左右切换卡片时，保持一个指标一张主图的节奏，比纵向堆叠更适合连续比对。
+            </div>
           </div>
         </div>
       </div>
 
       {isExpanded ? (
-        <div className="border-t border-white/8 bg-[rgba(5,9,16,0.9)] p-6 xl:col-span-3">
+        <div className="border-t border-white/8 bg-[rgba(5,9,16,0.9)] p-6">
           <IndicatorStockTable indicatorKey={indicator.key} stocks={stocks} />
         </div>
       ) : null}
@@ -420,6 +461,63 @@ function MonitorChip({
 }
 
 function MetricsList({ indicators }: { indicators: DashboardIndicator[] }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) {
+      return;
+    }
+
+    const updateActiveIndex = () => {
+      const cards = Array.from(
+        rail.querySelectorAll<HTMLElement>("[data-indicator-card]"),
+      );
+      if (cards.length === 0) {
+        setActiveIndex(0);
+        return;
+      }
+
+      const viewportCenter = rail.scrollLeft + rail.clientWidth / 2;
+      let nearestIndex = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      cards.forEach((card, index) => {
+        const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+        const distance = Math.abs(cardCenter - viewportCenter);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
+        }
+      });
+
+      setActiveIndex(nearestIndex);
+    };
+
+    updateActiveIndex();
+    rail.addEventListener("scroll", updateActiveIndex, { passive: true });
+    window.addEventListener("resize", updateActiveIndex);
+
+    return () => {
+      rail.removeEventListener("scroll", updateActiveIndex);
+      window.removeEventListener("resize", updateActiveIndex);
+    };
+  }, [indicators.length]);
+
+  const scrollRail = (direction: "left" | "right") => {
+    const rail = railRef.current;
+    if (!rail) {
+      return;
+    }
+
+    const amount = Math.max(rail.clientWidth * 0.82, 360);
+    rail.scrollBy({
+      left: direction === "right" ? amount : -amount,
+      behavior: "smooth",
+    });
+  };
+
   if (indicators.length === 0) {
     return (
       <EmptyState label="No serving-layer indicators are available for the latest snapshot." />
@@ -427,15 +525,74 @@ function MetricsList({ indicators }: { indicators: DashboardIndicator[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(6,10,18,0.96),rgba(3,6,12,0.96))] shadow-[0_30px_100px_rgba(0,0,0,0.28)]">
-      {indicators.map((indicator, index) => (
-        <div
-          key={indicator.key}
-          className={index === 0 ? "" : "border-t border-white/8"}
-        >
-          <ServingMetricRow key={indicator.key} indicator={indicator} />
+    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(6,10,18,0.96),rgba(3,6,12,0.96))] p-4 shadow-[0_30px_100px_rgba(0,0,0,0.28)]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+            Indicator Filmstrip
+          </div>
+          <div className="mt-2 text-sm leading-6 text-zinc-400">
+            这里不再是向下堆叠列表，而是横向研究轨道。每张卡片就是一张完整指标主图，左右拖动或点按钮持续看下去。
+          </div>
         </div>
-      ))}
+        <div className="flex items-center gap-2">
+          <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-zinc-400">
+            Card {String(activeIndex + 1).padStart(2, "0")} / {String(indicators.length).padStart(2, "0")}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 rounded-full border border-white/8 bg-white/[0.04] px-3 text-zinc-200 hover:border-emerald-400/20 hover:bg-emerald-400/10"
+            onClick={() => scrollRail("left")}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            左看
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 rounded-full border border-white/8 bg-white/[0.04] px-3 text-zinc-200 hover:border-emerald-400/20 hover:bg-emerald-400/10"
+            onClick={() => scrollRail("right")}
+          >
+            右看
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[rgba(4,8,15,0.92)] to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-14 bg-gradient-to-l from-[rgba(4,8,15,0.92)] to-transparent" />
+        <div
+          ref={railRef}
+          className="flex snap-x snap-mandatory gap-5 overflow-x-auto px-1 pb-4 pt-1 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {indicators.map((indicator, index) => (
+            <ServingMetricRow
+              key={indicator.key}
+              indicator={indicator}
+              index={index}
+              total={indicators.length}
+            />
+          ))}
+          <div className="w-1 shrink-0" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {indicators.map((indicator, index) => (
+          <div
+            key={`indicator-pill-${indicator.key}`}
+            className={`rounded-full border px-3 py-1.5 text-xs transition ${
+              index === activeIndex
+                ? "border-emerald-400/24 bg-emerald-400/[0.10] text-emerald-100"
+                : "border-white/8 bg-white/[0.03] text-zinc-400"
+            }`}
+          >
+            {indicator.title} · {formatIndicatorValue(indicator)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -795,11 +952,11 @@ export function DashboardShell({
                   Serving Metrics
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-white">
-                  Serving 层指标终端
+                  Serving 层指标图表轨道
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-                  参考 TradingView 的终端图表语言和 Polymarket 的市场列表结构，当前指标区改成连续面板。
-                  每个指标保持单行，但信息密度、状态展示和图表控制更接近真实行情产品。
+                  指标区改成横向连续主图轨道，每一张卡片只服务一个指标。
+                  这样看起来更像连续浏览研究图像，而不是在纵向列表里找重点。
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
@@ -810,7 +967,7 @@ export function DashboardShell({
                   Indicators · {indicators.length}
                 </div>
                 <div className="rounded-full border border-white/8 bg-white/[0.04] px-3 py-1.5 text-zinc-300">
-                  Layout · Market Terminal
+                  Layout · Horizontal Reel
                 </div>
               </div>
             </div>

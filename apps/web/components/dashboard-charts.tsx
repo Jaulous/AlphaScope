@@ -67,9 +67,11 @@ export function MetricSparkline({
 export function MetricTrendChart({
   history,
   className,
+  chartClassName,
 }: {
   history: MetricHistoryPoint[];
   className?: string;
+  chartClassName?: string;
 }) {
   const points = useMemo(
     () =>
@@ -160,7 +162,12 @@ export function MetricTrendChart({
           </Button>
         </div>
       </div>
-      <ChartContainer className="h-[250px] rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.96),rgba(4,8,16,0.9))] p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+      <ChartContainer
+        className={cn(
+          "h-[280px] rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,12,22,0.96),rgba(4,8,16,0.9))] p-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] lg:h-[320px]",
+          chartClassName,
+        )}
+      >
         <ReactECharts
           style={{ height: "100%", width: "100%" }}
           option={{

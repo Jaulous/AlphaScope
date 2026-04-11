@@ -131,6 +131,7 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
   - tracked equity watchlist
   - ingestion status card with per-source statuses from `fetch_runs`
 - The homepage now renders the latest stored snapshot on the server for the initial load, then refreshes in the background on an interval instead of depending on a manual refresh button.
+- The serving-metrics area now uses a horizontal indicator filmstrip with left/right navigation so indicators can be browsed like a continuous chart reel instead of only as a vertical stack.
 - The UI is not an editing surface and no longer depends on manual canvas operations.
 
 ## Known Limitations
