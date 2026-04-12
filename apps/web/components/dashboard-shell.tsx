@@ -574,6 +574,7 @@ export function DashboardShell({
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(initialSnapshot);
   const [isLoading, setIsLoading] = useState(initialSnapshot === null && initialError === null);
   const [error, setError] = useState<string | null>(initialError);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const isRequestInFlight = useRef(false);
 
   const loadSnapshot = useCallback(async (mode: "initial" | "refresh") => {
@@ -590,17 +591,22 @@ export function DashboardShell({
       const nextSnapshot = await fetchDashboardSnapshot();
       setSnapshot(nextSnapshot);
       setError(null);
+      setRefreshError(null);
     } catch (loadError) {
       const message =
         loadError instanceof Error
           ? loadError.message
           : "Failed to load indicators";
-      setError(message);
+      if (mode === "refresh" && snapshot) {
+        setRefreshError(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setIsLoading(false);
       isRequestInFlight.current = false;
     }
-  }, []);
+  }, [snapshot]);
 
   useEffect(() => {
     if (!initialSnapshot && !initialError) {
@@ -744,6 +750,23 @@ export function DashboardShell({
                   Indicator load failed
                 </div>
                 <div className="mt-1 text-sm text-rose-200/80">{error}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {refreshError && snapshot ? (
+          <Card className="border-amber-400/20 bg-amber-400/10 shadow-none">
+            <CardContent className="flex items-start gap-3 p-5">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-200" />
+              <div>
+                <div className="text-sm font-medium text-amber-100">
+                  自动刷新失败，当前继续显示最近快照
+                </div>
+                <div className="mt-1 text-sm text-amber-100/80">
+                  {snapshot.as_of ? `当前仍展示 ${snapshot.as_of} 的快照。` : ""}
+                  {refreshError}
+                </div>
               </div>
             </CardContent>
           </Card>

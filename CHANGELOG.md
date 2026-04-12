@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T23:18:45+08:00
+- Fixed the local frontend timeout path by normalizing the default web-to-backend origin to `127.0.0.1` instead of `localhost`, which had been stalling Node/Next dev requests for `10s+` on this machine even while direct backend reads stayed in the millisecond range.
+- Restored server-rendered initial dashboard snapshots on the homepage so the first page response arrives with real data instead of a long client-side `Loading...` phase.
+- Changed dashboard refresh failure handling to keep showing the current snapshot and surface only a non-blocking warning, avoiding the misleading "hard error on top of visible data" state.
+
 ### 2026-04-12T23:07:19+08:00
 - Hardened the local startup wrappers so port conflicts are handled intentionally instead of surfacing as raw `Address already in use` failures from nested dev processes.
 - `pnpm start:project` now exits cleanly with reuse URLs when both services are already running, while `pnpm dev` and `pnpm open:web` fail fast with the occupied port and current listener details.

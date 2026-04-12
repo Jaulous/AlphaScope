@@ -29,6 +29,8 @@ cp .env.example .env
 ./scripts/start-project.sh
 ```
 
+- Keep local backend URLs on `127.0.0.1` instead of `localhost` for this repo on this machine. The checked-in `.env.example` uses `NEXT_PUBLIC_SERVER_URL=http://127.0.0.1:8000` because Next/Node dev requests to `localhost:8000` can stall long enough to create false frontend timeout errors.
+
 One-click local startup wrappers:
 
 ```bash

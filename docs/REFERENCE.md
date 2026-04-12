@@ -73,7 +73,7 @@ Store stable reference facts needed for implementation and operations.
 - Supabase Postgres: system of record for raw datasets, serving snapshots, definitions, board documents, and ingestion run logs.
 - FastAPI: backend API surface.
 - Next.js: frontend rendering surface.
-- The web homepage renders immediately, then the client fetches `GET /api/dashboard/latest` and continues bounded background refreshes after hydration.
+- The web homepage server-renders the latest shaped snapshot, then the client continues bounded background refreshes after hydration.
 - The backend keeps a short in-process cache for `GET /api/dashboard/latest` to keep repeated reads and dashboard polling responsive between data updates.
 - The frontend-local `GET /api/dashboard/latest` proxy shapes the browser-facing payload to the currently rendered dashboard slices:
   - indicators: filtered to visible indicators, excluding the stored `active_themes` pseudo-indicator row
@@ -81,6 +81,7 @@ Store stable reference facts needed for implementation and operations.
   - tracked stocks: top `12`
   - latest run: summary fields only
   - totals: preserved separately via `indicator_count`, `active_theme_count`, and `tracked_stock_count`
+- Local backend origin on this machine should use `http://127.0.0.1:8000` instead of `http://localhost:8000`; Node/Next dev requests to `localhost:8000` can stall for `10s+` even when direct `127.0.0.1` requests complete in milliseconds.
 
 ## Raw Storage Notes
 - Raw V2 tables used by runtime ingestion:

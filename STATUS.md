@@ -94,8 +94,8 @@ Verified locally on `2026-04-12`:
 - latest fetch run status: `success_with_warnings`
 - latest fetch target date: `2026-04-10`
 - backend `GET /api/dashboard/latest` repeat-read latency after warmup: `~2-3ms`
-- frontend `/api/dashboard/latest` proxy latency after warmup: `~8-20ms`
-- frontend `/` HTML first response after clean dev start: `~1.66s`, then `~25ms` on the next hit
+- frontend `/api/dashboard/latest` proxy latency after route warmup: `~9-10ms`
+- frontend `/` HTML first response with server-rendered snapshot: `~120-220ms`
 - browser-facing `/api/dashboard/latest` payload after shaping: `~22.9KB` instead of the raw `~73KB`
 
 That warning state is currently expected because two best-effort datasets can still fail independently without blocking the main indicator pipeline:
@@ -134,10 +134,12 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
   - active theme ranking
   - tracked equity watchlist
   - ingestion status card with per-source statuses from `fetch_runs`
-- The homepage now renders the shell immediately, then loads the latest stored snapshot on the client and refreshes it in the background on an interval instead of depending on a manual refresh button.
+- The homepage now server-renders the latest shaped snapshot, then refreshes it in the background on an interval instead of forcing the user through an initial client-side loading screen.
 - The serving-metrics area is back to one indicator per row; horizontal interaction remains inside each chart's history window instead of moving the full metric card left and right.
 - The backend now keeps a short in-process cache for `GET /api/dashboard/latest`, so repeated dashboard reads no longer rebuild the same snapshot payload on every request.
 - The frontend proxy now trims browser-facing snapshot payloads to the visible dashboard slices and only exposes a summarized `latest_run`, which cut the delivered JSON from roughly `73KB` to `22.9KB` in local verification.
+- Background refresh failures no longer replace a visible snapshot with a hard error banner; the page keeps showing the current snapshot and degrades to a non-blocking warning instead.
+- Local Next-to-backend traffic must use `127.0.0.1`; using `localhost:8000` on this machine produced `10s+` stalls and false `signal timed out` errors even though the backend itself was healthy.
 - The UI is not an editing surface and no longer depends on manual canvas operations.
 
 ## Known Limitations
