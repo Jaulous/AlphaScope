@@ -11,6 +11,10 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T11:08:37+08:00
+- Added repository-local startup wrappers for frontend, backend, and full-project development so local launch no longer depends on manually retyping `nvm`, `corepack`, and `.venv` activation steps each time.
+- Pointed the root `pnpm` scripts at those wrappers and updated the maintained workflow/reference docs so the one-click startup path is discoverable from the repo itself.
+
 ### 2026-04-11T22:38:52+08:00
 - Reworked the serving-metrics section into a horizontal indicator filmstrip so each metric now reads as one large chart card that can be browsed continuously left and right instead of only through a vertical stack.
 - Strengthened indicator prominence by enlarging the primary value panel, expanding chart height, and adding explicit reel navigation plus an active-card summary strip.

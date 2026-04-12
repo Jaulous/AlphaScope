@@ -21,28 +21,37 @@ Capture the preferred engineering workflow for this project, with extra emphasis
 
 ## Local Development
 ```bash
-nvm use
-corepack enable
-corepack prepare pnpm@10.6.2 --activate
 pnpm install
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e packages/quant-core -e apps/server
 cp .env.example .env
-pnpm start:project
+./scripts/start-project.sh
 ```
+
+One-click local startup wrappers:
+
+```bash
+./scripts/start-project.sh
+./scripts/start-web.sh
+./scripts/start-server.sh
+```
+
+- `./scripts/start-project.sh` loads `nvm`, enables `corepack`, activates `.venv`, and starts the full project.
+- `./scripts/start-web.sh` loads `nvm`, enables `corepack`, and starts only the frontend.
+- `./scripts/start-server.sh` loads `nvm`, enables `corepack`, activates `.venv`, and starts only the backend.
+- Matching `pnpm` aliases are also available: `pnpm start:project`, `pnpm start:web`, and `pnpm start:server`.
 
 Backend-only development:
 
 ```bash
-source .venv/bin/activate
-pnpm --filter @limitboard/server dev
+./scripts/start-server.sh
 ```
 
 Frontend-only development:
 
 ```bash
-pnpm --filter @limitboard/web dev
+./scripts/start-web.sh
 ```
 
 Open the frontend page:

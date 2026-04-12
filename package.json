@@ -3,8 +3,11 @@
   "private": true,
   "packageManager": "pnpm@10.6.2",
   "scripts": {
-    "dev": "turbo run dev --parallel",
-    "start:project": "turbo run dev --parallel",
+    "dev:raw": "turbo run dev --parallel",
+    "dev": "./scripts/start-project.sh",
+    "start:project": "./scripts/start-project.sh",
+    "start:web": "./scripts/start-web.sh",
+    "start:server": "./scripts/start-server.sh",
     "open:frontend": "open http://localhost:3000",
     "build": "turbo run build",
     "lint": "turbo run lint",

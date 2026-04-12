@@ -39,10 +39,17 @@ Store stable reference facts needed for implementation and operations.
 - Monorepo orchestrator: Turborepo.
 - Root scripts:
   - `pnpm dev`
+  - `pnpm start:project`
+  - `pnpm start:web`
+  - `pnpm start:server`
   - `pnpm build`
   - `pnpm lint`
   - `pnpm typecheck`
   - `pnpm test`
+- Local helper scripts:
+  - `./scripts/start-project.sh`
+  - `./scripts/start-web.sh`
+  - `./scripts/start-server.sh`
 - Key env vars:
   - `SUPABASE_URL`
   - `SUPABASE_SECRET_KEY`

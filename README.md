@@ -28,21 +28,26 @@ AlphaScope is a Turborepo monorepo for a research-engine market monitoring and d
 
 ## Quick Start
 ```bash
-nvm use
-corepack enable
-corepack prepare pnpm@10.6.2 --activate
 pnpm install
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e packages/quant-core -e apps/server
 cp .env.example .env
-pnpm start:project
+./scripts/start-project.sh
 ```
 
 Open the frontend page:
 
 ```bash
 pnpm open:frontend
+```
+
+One-click local wrappers:
+
+```bash
+./scripts/start-project.sh
+./scripts/start-web.sh
+./scripts/start-server.sh
 ```
 
 ## Manual Fetch
