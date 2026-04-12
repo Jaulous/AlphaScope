@@ -646,6 +646,10 @@ export function DashboardShell({
   }, [indicators]);
   const warnings = snapshot?.warnings ?? [];
   const latestRun = snapshot?.latest_run ?? null;
+  const indicatorCount = snapshot?.indicator_count ?? indicators.length;
+  const activeThemeCount = snapshot?.active_theme_count ?? snapshot?.active_themes.length ?? 0;
+  const trackedStockCount =
+    snapshot?.tracked_stock_count ?? snapshot?.tracked_stocks.length ?? 0;
   const hasSnapshot = snapshot !== null;
   const showInitialLoading = isLoading && !hasSnapshot;
   const showNoData =
@@ -723,9 +727,9 @@ export function DashboardShell({
                 </div>
               ) : null}
               <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-300">
-                指标 {showInitialLoading ? "..." : indicators.length} · 题材{" "}
-                {showInitialLoading ? "..." : snapshot?.active_themes.length ?? 0} · 个股{" "}
-                {showInitialLoading ? "..." : snapshot?.tracked_stocks.length ?? 0}
+                指标 {showInitialLoading ? "..." : indicatorCount} · 题材{" "}
+                {showInitialLoading ? "..." : activeThemeCount} · 个股{" "}
+                {showInitialLoading ? "..." : trackedStockCount}
               </div>
             </div>
           </div>

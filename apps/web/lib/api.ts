@@ -6,7 +6,6 @@ function toDashboardFetchError(detail: unknown) {
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
   const response = await fetch("/api/dashboard/latest", {
-    cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) {

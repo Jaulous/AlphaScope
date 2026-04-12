@@ -140,6 +140,9 @@ export interface DashboardSnapshot {
   generated_at?: string | null;
   source?: "live" | "stored";
   storage_mode?: "supabase" | "memory";
+  indicator_count?: number;
+  active_theme_count?: number;
+  tracked_stock_count?: number;
   warnings?: string[];
   latest_run?: FetchRunSummary | null;
   market_breadth?: {

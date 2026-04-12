@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T23:00:28+08:00
+- Shaped the browser-facing `/api/dashboard/latest` payload to the dashboard-visible slices instead of forwarding the backend snapshot unchanged, while preserving total counts for indicators, themes, and tracked stocks.
+- Reduced `latest_run` on the web path to a runtime summary and added short HTTP caching on the frontend proxy so repeated page opens can reuse the latest shaped snapshot.
+- Verified locally that the browser-facing dashboard payload dropped from roughly `73KB` to `22.9KB` without changing the current homepage information density.
+
 ### 2026-04-12T11:45:58+08:00
 - Restored the serving-metrics layout to one indicator per row and removed the mistaken full-card horizontal reel, keeping left-right interaction inside each chart's own history window instead of across the whole metrics area.
 - Changed the homepage back to immediate shell rendering with client-side snapshot loading so `3000` no longer blocks the full page on backend snapshot latency before showing any structure.

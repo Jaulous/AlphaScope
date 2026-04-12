@@ -75,6 +75,12 @@ Store stable reference facts needed for implementation and operations.
 - Next.js: frontend rendering surface.
 - The web homepage renders immediately, then the client fetches `GET /api/dashboard/latest` and continues bounded background refreshes after hydration.
 - The backend keeps a short in-process cache for `GET /api/dashboard/latest` to keep repeated reads and dashboard polling responsive between data updates.
+- The frontend-local `GET /api/dashboard/latest` proxy shapes the browser-facing payload to the currently rendered dashboard slices:
+  - indicators: filtered to visible indicators, excluding the stored `active_themes` pseudo-indicator row
+  - active themes: top `8`
+  - tracked stocks: top `12`
+  - latest run: summary fields only
+  - totals: preserved separately via `indicator_count`, `active_theme_count`, and `tracked_stock_count`
 
 ## Raw Storage Notes
 - Raw V2 tables used by runtime ingestion:

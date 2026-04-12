@@ -64,6 +64,8 @@ Explain how the system is structured and why.
 19. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, and market-breadth reads now request only `pct_change` from raw quotes instead of the full quote payload.
 20. The backend keeps a short in-process cache for `GET /api/dashboard/latest` so repeated page opens and auto-refreshes do not keep paying the full Supabase snapshot-assembly cost within the same freshness window.
 21. The homepage now renders the dashboard shell immediately and lets the hydrated client fetch `/api/dashboard/latest`, so users see the page structure and loading state right away instead of blocking the full HTML response on upstream snapshot latency.
+22. The frontend-local `/api/dashboard/latest` proxy no longer forwards the backend payload unchanged; it trims the response to the dashboard-visible indicator/theme/stock slices, preserves separate total counts, and reduces `latest_run` to the runtime fields the homepage actually renders.
+23. The frontend-local dashboard proxy now advertises short HTTP caching (`max-age` plus `stale-while-revalidate`) so repeated page opens during the same monitoring window can reuse the latest shaped snapshot instead of re-downloading the full response every time.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.

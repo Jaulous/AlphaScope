@@ -96,6 +96,7 @@ Verified locally on `2026-04-12`:
 - backend `GET /api/dashboard/latest` repeat-read latency after warmup: `~2-3ms`
 - frontend `/api/dashboard/latest` proxy latency after warmup: `~8-20ms`
 - frontend `/` HTML first response after clean dev start: `~1.66s`, then `~25ms` on the next hit
+- browser-facing `/api/dashboard/latest` payload after shaping: `~22.9KB` instead of the raw `~73KB`
 
 That warning state is currently expected because two best-effort datasets can still fail independently without blocking the main indicator pipeline:
 - `concept_board_constituents`
@@ -136,6 +137,7 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
 - The homepage now renders the shell immediately, then loads the latest stored snapshot on the client and refreshes it in the background on an interval instead of depending on a manual refresh button.
 - The serving-metrics area is back to one indicator per row; horizontal interaction remains inside each chart's history window instead of moving the full metric card left and right.
 - The backend now keeps a short in-process cache for `GET /api/dashboard/latest`, so repeated dashboard reads no longer rebuild the same snapshot payload on every request.
+- The frontend proxy now trims browser-facing snapshot payloads to the visible dashboard slices and only exposes a summarized `latest_run`, which cut the delivered JSON from roughly `73KB` to `22.9KB` in local verification.
 - The UI is not an editing surface and no longer depends on manual canvas operations.
 
 ## Known Limitations
