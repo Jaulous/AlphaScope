@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T11:45:58+08:00
+- Restored the serving-metrics layout to one indicator per row and removed the mistaken full-card horizontal reel, keeping left-right interaction inside each chart's own history window instead of across the whole metrics area.
+- Changed the homepage back to immediate shell rendering with client-side snapshot loading so `3000` no longer blocks the full page on backend snapshot latency before showing any structure.
+- Reduced latest-dashboard read cost by narrowing market-breadth reads to `pct_change` only and by adding a short in-process cache on `GET /api/dashboard/latest`, which brought repeat reads down to millisecond-level latency in local verification.
+
 ### 2026-04-12T11:20:00+08:00
 - Renamed the local single-service launch aliases to match the preferred operator vocabulary: `pnpm dev` now starts the backend and `pnpm open:web` now starts the frontend.
 - Kept `pnpm start:project` as the one-command full-stack launcher and synced the maintained docs to the new command names.

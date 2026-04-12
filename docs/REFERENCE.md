@@ -73,7 +73,8 @@ Store stable reference facts needed for implementation and operations.
 - Supabase Postgres: system of record for raw datasets, serving snapshots, definitions, board documents, and ingestion run logs.
 - FastAPI: backend API surface.
 - Next.js: frontend rendering surface.
-- The web homepage fetches `GET /api/dashboard/latest` on the server for the initial render and only uses client polling for bounded background refreshes after hydration.
+- The web homepage renders immediately, then the client fetches `GET /api/dashboard/latest` and continues bounded background refreshes after hydration.
+- The backend keeps a short in-process cache for `GET /api/dashboard/latest` to keep repeated reads and dashboard polling responsive between data updates.
 
 ## Raw Storage Notes
 - Raw V2 tables used by runtime ingestion:

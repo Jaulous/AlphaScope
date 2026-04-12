@@ -61,8 +61,9 @@ Explain how the system is structured and why.
 16. Dashboard breadth reads from canonical Raw V2 quote rows.
 17. Serving outputs are persisted into `daily_indicators`, `daily_themes_volume`, and `stock_kline_daily`. Fetch metadata is stored in `fetch_runs`.
 18. `GET /api/dashboard/latest` reads the latest persisted dashboard snapshot first and serves it immediately when available. It only falls back to on-demand fetch when there is no usable stored snapshot, so the customer read path does not block on AkShare or a full recompute.
-19. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, so the read path stays responsive as data grows.
-20. Next.js fetches the latest dashboard snapshot on the server for the initial page render, then the hydrated client shell continues bounded background refreshes without recomputing market state in the browser.
+19. Dashboard snapshot assembly is bounded to the latest snapshot's indicator keys, theme names, and tracked stock symbols instead of scanning every historical stock row, and market-breadth reads now request only `pct_change` from raw quotes instead of the full quote payload.
+20. The backend keeps a short in-process cache for `GET /api/dashboard/latest` so repeated page opens and auto-refreshes do not keep paying the full Supabase snapshot-assembly cost within the same freshness window.
+21. The homepage now renders the dashboard shell immediately and lets the hydrated client fetch `/api/dashboard/latest`, so users see the page structure and loading state right away instead of blocking the full HTML response on upstream snapshot latency.
 
 ## Quality Attributes
 - Determinism: market snapshot, universe selection, and indicators share one aligned daily context.

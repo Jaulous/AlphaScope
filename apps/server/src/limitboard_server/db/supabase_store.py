@@ -64,6 +64,31 @@ class SupabaseStore:
         quotes_v2 = self.fetch_raw_equity_daily_quotes_v2(snapshot_date)
         return self._map_equity_daily_quotes_to_market_snapshot(quotes_v2)
 
+    def fetch_market_breadth(self, snapshot_date: date) -> dict[str, int] | None:
+        response = (
+            self.client.table("raw_equity_daily_quotes")
+            .select("pct_change")
+            .eq("trade_date", snapshot_date.isoformat())
+            .execute()
+        )
+        rows = response.data or []
+        if not rows:
+            return None
+
+        changes = pd.to_numeric(
+            pd.Series((row.get("pct_change") for row in rows), dtype="float64"),
+            errors="coerce",
+        )
+        valid_changes = changes.dropna()
+        if valid_changes.empty:
+            return None
+
+        return {
+            "advancers": int((valid_changes > 0).sum()),
+            "decliners": int((valid_changes < 0).sum()),
+            "unchanged": int((valid_changes == 0).sum()),
+        }
+
     def fetch_raw_limit_up_pool(self, snapshot_date: date) -> pd.DataFrame:
         limit_events_v2 = self.fetch_raw_equity_daily_limit_events_v2(snapshot_date)
         return self._map_limit_events_to_limit_up_pool(limit_events_v2)
@@ -1206,18 +1231,7 @@ class SupabaseStore:
             )
         ]
 
-        market_breadth = None
-        if as_of_raw:
-            raw_market_df = self.fetch_raw_market_snapshot(as_of)
-            if not raw_market_df.empty:
-                raw_market_df["pct_change"] = pd.to_numeric(
-                    raw_market_df["pct_change"], errors="coerce"
-                )
-                market_breadth = {
-                    "advancers": int((raw_market_df["pct_change"] > 0).sum()),
-                    "decliners": int((raw_market_df["pct_change"] < 0).sum()),
-                    "unchanged": int((raw_market_df["pct_change"] == 0).sum()),
-                }
+        market_breadth = self.fetch_market_breadth(as_of) if as_of_raw else None
 
         return {
             "as_of": as_of_raw,

@@ -83,22 +83,25 @@ As of `2026-04-09`, this repository is no longer in the original editable-whiteb
 
 ## Verified Runtime Snapshot
 
-Verified locally on `2026-04-09`:
+Verified locally on `2026-04-12`:
 
 - `GET /api/health`: success
 - `GET /api/dashboard/latest`: success
-- latest `as_of`: `2026-04-09`
-- latest indicator count: `8`
+- latest `as_of`: `2026-04-10`
+- latest indicator count: `7`
 - latest theme count: `20`
-- latest tracked stock count: `40`
+- latest tracked stock count: `61`
 - latest fetch run status: `success_with_warnings`
-- latest fetch target date: `2026-04-09`
+- latest fetch target date: `2026-04-10`
+- backend `GET /api/dashboard/latest` repeat-read latency after warmup: `~2-3ms`
+- frontend `/api/dashboard/latest` proxy latency after warmup: `~8-20ms`
+- frontend `/` HTML first response after clean dev start: `~1.66s`, then `~25ms` on the next hit
 
 That warning state is currently expected because two best-effort datasets can still fail independently without blocking the main indicator pipeline:
 - `concept_board_constituents`
 - `index_daily_quotes`
 
-The main indicator-serving chain still completed successfully and persisted the `2026-04-09` snapshot.
+The main indicator-serving chain still completed successfully and persisted the `2026-04-10` snapshot.
 
 ## Verified Remote Raw Snapshot
 
@@ -130,8 +133,9 @@ The remaining zero-count table is still `raw_concept_board_constituents_daily`. 
   - active theme ranking
   - tracked equity watchlist
   - ingestion status card with per-source statuses from `fetch_runs`
-- The homepage now renders the latest stored snapshot on the server for the initial load, then refreshes in the background on an interval instead of depending on a manual refresh button.
-- The serving-metrics area now uses a horizontal indicator filmstrip with left/right navigation so indicators can be browsed like a continuous chart reel instead of only as a vertical stack.
+- The homepage now renders the shell immediately, then loads the latest stored snapshot on the client and refreshes it in the background on an interval instead of depending on a manual refresh button.
+- The serving-metrics area is back to one indicator per row; horizontal interaction remains inside each chart's history window instead of moving the full metric card left and right.
+- The backend now keeps a short in-process cache for `GET /api/dashboard/latest`, so repeated dashboard reads no longer rebuild the same snapshot payload on every request.
 - The UI is not an editing surface and no longer depends on manual canvas operations.
 
 ## Known Limitations

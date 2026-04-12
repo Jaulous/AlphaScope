@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from threading import Lock
+from time import monotonic
 
 import pandas as pd
 import pytz
@@ -15,6 +17,31 @@ from limitboard_server.tasks.fetch_data import run_daily_fetch
 
 router = APIRouter()
 cron_scheduler = FetchScheduler()
+DASHBOARD_CACHE_TTL_SECONDS = 15.0
+_dashboard_cache_lock = Lock()
+_dashboard_cache: dict[int, tuple[float, dict]] = {}
+
+
+def _read_cached_dashboard_snapshot(lookback_days: int) -> dict | None:
+    with _dashboard_cache_lock:
+        cached = _dashboard_cache.get(lookback_days)
+        if not cached:
+            return None
+        cached_at, payload = cached
+        if monotonic() - cached_at > DASHBOARD_CACHE_TTL_SECONDS:
+            _dashboard_cache.pop(lookback_days, None)
+            return None
+        return payload.copy()
+
+
+def _write_cached_dashboard_snapshot(lookback_days: int, payload: dict) -> None:
+    with _dashboard_cache_lock:
+        _dashboard_cache[lookback_days] = (monotonic(), payload.copy())
+
+
+def _clear_cached_dashboard_snapshots() -> None:
+    with _dashboard_cache_lock:
+        _dashboard_cache.clear()
 
 
 def get_store() -> SupabaseStore | None:
@@ -53,6 +80,13 @@ def health() -> dict:
 
 @router.get("/dashboard/latest")
 def dashboard_latest(lookback_days: int = 60) -> dict:
+    cached_snapshot = _read_cached_dashboard_snapshot(lookback_days)
+    if cached_snapshot is not None:
+        cached_snapshot["generated_at"] = datetime.now(
+            pytz.timezone(settings.scheduler_timezone)
+        ).isoformat()
+        return cached_snapshot
+
     store = require_store()
     snapshot: dict | None = None
     warnings: list[str] = []
@@ -103,6 +137,7 @@ def dashboard_latest(lookback_days: int = 60) -> dict:
     snapshot["latest_run"] = store.fetch_latest_fetch_run()
     if "market_breadth" not in snapshot:
         snapshot["market_breadth"] = None
+    _write_cached_dashboard_snapshot(lookback_days, snapshot)
     return snapshot
 
 
@@ -123,7 +158,9 @@ def trigger_fetch(x_admin_key: str | None = Header(default=None)) -> dict:
     if settings.admin_api_key and x_admin_key != settings.admin_api_key:
         raise HTTPException(status_code=401, detail="invalid admin key")
     try:
-        return run_daily_fetch(trigger="manual")
+        result = run_daily_fetch(trigger="manual")
+        _clear_cached_dashboard_snapshots()
+        return result
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -142,6 +179,7 @@ def cron_fetch(authorization: str | None = Header(default=None)) -> dict:
     latest_backfilled = None
     if catch_up_results:
         latest_backfilled = catch_up_results[-1].get("as_of")
+        _clear_cached_dashboard_snapshots()
 
     return {
         "status": "ok",
