@@ -11,6 +11,11 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T23:07:19+08:00
+- Hardened the local startup wrappers so port conflicts are handled intentionally instead of surfacing as raw `Address already in use` failures from nested dev processes.
+- `pnpm start:project` now exits cleanly with reuse URLs when both services are already running, while `pnpm dev` and `pnpm open:web` fail fast with the occupied port and current listener details.
+- Verified both paths locally: the wrappers now explain occupied `3000/8000` listeners clearly and still start the full project successfully when the ports are free.
+
 ### 2026-04-12T23:00:28+08:00
 - Shaped the browser-facing `/api/dashboard/latest` payload to the dashboard-visible slices instead of forwarding the backend snapshot unchanged, while preserving total counts for indicators, themes, and tracked stocks.
 - Reduced `latest_run` on the web path to a runtime summary and added short HTTP caching on the frontend proxy so repeated page opens can reuse the latest shaped snapshot.

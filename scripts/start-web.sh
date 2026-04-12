@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_dev_runtime.sh"
 
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+cd "$(project_root)"
+require_nvm
+activate_node_toolchain
 
-if [ ! -s "$NVM_DIR/nvm.sh" ]; then
-  echo "Missing nvm bootstrap at $NVM_DIR/nvm.sh" >&2
+WEB_PORT="${WEB_PORT:-3000}"
+WEB_URL="http://localhost:${WEB_PORT}"
+
+if port_is_in_use "$WEB_PORT"; then
+  print_port_conflict "$WEB_PORT" "Frontend" "$WEB_URL"
+  echo "Stop the existing listener before running pnpm open:web." >&2
   exit 1
 fi
-
-# shellcheck disable=SC1090
-. "$NVM_DIR/nvm.sh"
-
-nvm use >/dev/null
-corepack enable >/dev/null
 
 exec pnpm --filter @limitboard/web dev

@@ -41,6 +41,8 @@ One-click local startup wrappers:
 - `./scripts/start-web.sh` loads `nvm`, enables `corepack`, and starts only the frontend.
 - `./scripts/start-server.sh` loads `nvm`, enables `corepack`, activates `.venv`, and starts only the backend.
 - Matching `pnpm` aliases are also available: `pnpm start:project`, `pnpm open:web`, and `pnpm dev`.
+- If both frontend and backend listeners are already up, `./scripts/start-project.sh` exits cleanly and prints the reuse URLs instead of failing deep inside Turborepo with a raw port-bind error.
+- If only one required listener port is already occupied, the startup wrappers fail fast with the occupied port, the current listener, and the reuse URL so the operator can distinguish "AlphaScope is already running" from "some other process is blocking startup".
 
 Backend-only development:
 
