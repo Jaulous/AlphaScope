@@ -40,8 +40,7 @@ Store stable reference facts needed for implementation and operations.
 - Root scripts:
   - `pnpm dev`
   - `pnpm start:project`
-  - `pnpm start:web`
-  - `pnpm start:server`
+  - `pnpm open:web`
   - `pnpm build`
   - `pnpm lint`
   - `pnpm typecheck`

@@ -40,7 +40,7 @@ One-click local startup wrappers:
 - `./scripts/start-project.sh` loads `nvm`, enables `corepack`, activates `.venv`, and starts the full project.
 - `./scripts/start-web.sh` loads `nvm`, enables `corepack`, and starts only the frontend.
 - `./scripts/start-server.sh` loads `nvm`, enables `corepack`, activates `.venv`, and starts only the backend.
-- Matching `pnpm` aliases are also available: `pnpm start:project`, `pnpm start:web`, and `pnpm start:server`.
+- Matching `pnpm` aliases are also available: `pnpm start:project`, `pnpm open:web`, and `pnpm dev`.
 
 Backend-only development:
 

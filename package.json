@@ -4,10 +4,9 @@
   "packageManager": "pnpm@10.6.2",
   "scripts": {
     "dev:raw": "turbo run dev --parallel",
-    "dev": "./scripts/start-project.sh",
+    "dev": "./scripts/start-server.sh",
     "start:project": "./scripts/start-project.sh",
-    "start:web": "./scripts/start-web.sh",
-    "start:server": "./scripts/start-server.sh",
+    "open:web": "./scripts/start-web.sh",
     "open:frontend": "open http://localhost:3000",
     "build": "turbo run build",
     "lint": "turbo run lint",

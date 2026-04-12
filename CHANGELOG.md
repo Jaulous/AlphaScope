@@ -11,6 +11,10 @@ Record important project changes so humans and agents can quickly reconstruct wh
 
 ## Entries
 
+### 2026-04-12T11:20:00+08:00
+- Renamed the local single-service launch aliases to match the preferred operator vocabulary: `pnpm dev` now starts the backend and `pnpm open:web` now starts the frontend.
+- Kept `pnpm start:project` as the one-command full-stack launcher and synced the maintained docs to the new command names.
+
 ### 2026-04-12T11:08:37+08:00
 - Added repository-local startup wrappers for frontend, backend, and full-project development so local launch no longer depends on manually retyping `nvm`, `corepack`, and `.venv` activation steps each time.
 - Pointed the root `pnpm` scripts at those wrappers and updated the maintained workflow/reference docs so the one-click startup path is discoverable from the repo itself.

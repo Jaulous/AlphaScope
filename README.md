@@ -48,6 +48,9 @@ One-click local wrappers:
 ./scripts/start-project.sh
 ./scripts/start-web.sh
 ./scripts/start-server.sh
+pnpm start:project
+pnpm open:web
+pnpm dev
 ```
 
 ## Manual Fetch
